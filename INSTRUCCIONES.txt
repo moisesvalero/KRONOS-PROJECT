@@ -1,0 +1,436 @@
+INSTRUCCIONES PASO A PASO PARA USAR ESTA PLANTILLA
+==================================================
+
+Este archivo está pensado para personas que:
+- NUNCA han usado Svelte ni SvelteKit.
+- Tienen pocos conocimientos de desarrollo front-end.
+
+Lee todo con calma y sigue los pasos en orden.
+
+--------------------------------------------------
+1. QUÉ ES ESTA PLANTILLA
+--------------------------------------------------
+
+Esta carpeta contiene el código base de un proyecto web usando:
+- SvelteKit (framework moderno para crear webs y apps).
+- TypeScript (JavaScript con tipos, más seguro).
+
+La plantilla trae:
+- Una página de inicio sencilla (home) ya funcionando.
+- Una página de ejemplo más compleja (landing entera) para inspirarte.
+- Componentes reutilizables para construir tu propia web.
+
+Tu objetivo será:
+- Hacer una copia de esta plantilla.
+- Cambiar textos, colores y secciones para tu proyecto.
+
+--------------------------------------------------
+2. INSTALAR HERRAMIENTAS NECESARIAS
+--------------------------------------------------
+
+2.1. Instalar Node.js
+---------------------
+
+1. Abre tu navegador (Chrome, Edge, Firefox, etc.).
+2. Ve a la página oficial de Node.js:
+   - Escribe en la barra de direcciones: https://nodejs.org
+3. Descarga la versión LTS recomendada para tu sistema (Windows).
+4. Ejecuta el instalador que se descarga (doble clic).
+5. Durante la instalación:
+   - Acepta los términos.
+   - Deja las opciones por defecto.
+   - Pulsa "Next" hasta el final.
+6. Cuando termine, cierra el instalador.
+
+Para comprobar que está instalado:
+1. Abre una terminal:
+   - En Windows: pulsa la tecla Windows, escribe "cmd" y pulsa Enter.
+2. En la ventana negra escribe:
+
+   node -v
+
+   y pulsa Enter.
+
+3. Si ves algo como "v18.x" o "v20.x", Node está instalado.
+
+4. Ahora escribe:
+
+   npm -v
+
+   y pulsa Enter.
+
+5. Si ves un número de versión (por ejemplo "10.x"), npm también está instalado.
+
+
+2.2. (Opcional) Instalar Git
+----------------------------
+
+Git sirve para gestionar versiones del código y clonar repositorios.
+Si no sabes qué es, puedes saltarte este paso y usar el ZIP del proyecto.
+
+Si quieres instalarlo:
+1. Ve a: https://git-scm.com
+2. Descarga la versión para Windows.
+3. Ejecuta el instalador dejando las opciones por defecto.
+
+
+--------------------------------------------------
+3. CREAR UN NUEVO PROYECTO A PARTIR DE ESTA PLANTILLA
+--------------------------------------------------
+
+Tienes DOS opciones: CLONAR con Git o DESCARGAR un ZIP.
+Elige SOLO una.
+
+3.1. Opción A – Usar Git (si ya lo tienes instalado)
+----------------------------------------------------
+
+1. Copia la URL de este repositorio (por ejemplo desde GitHub).
+   - Será algo parecido a: https://github.com/usuario/mi-web-sveltekit-starter.git
+
+2. Abre una terminal.
+   - En Windows: tecla Windows, escribe "cmd" y pulsa Enter.
+
+3. Ve a la carpeta donde quieras guardar tu proyecto:
+
+   cd C:\Users\TU_USUARIO\Desktop
+
+   (sustituye "TU_USUARIO" por tu nombre real de usuario en Windows).
+
+4. Clona el repositorio:
+
+   git clone URL_DEL_REPO mi-nueva-web
+
+   Ejemplo:
+
+   git clone https://github.com/usuario/mi-web-sveltekit-starter.git mi-nueva-web
+
+5. Entra en la carpeta que se ha creado:
+
+   cd mi-nueva-web
+
+Ya tienes una copia local de la plantilla.
+
+
+3.2. Opción B – Descargar ZIP (si no usas Git)
+----------------------------------------------
+
+1. Entra a la página del repositorio (por ejemplo en GitHub).
+2. Busca el botón que diga algo como:
+   - "Code" -> "Download ZIP"
+3. Descarga el archivo ZIP.
+4. Una vez descargado:
+   - Haz clic derecho en el ZIP.
+   - Elige "Extraer todo" o "Extraer aquí".
+5. Se creará una carpeta, por ejemplo:
+   - C:\Users\TU_USUARIO\Downloads\mi-web-sveltekit-starter
+
+6. Te recomiendo mover esa carpeta a un sitio más cómodo, por ejemplo:
+   - C:\Users\TU_USUARIO\Desktop\mi-nueva-web
+
+7. Abre una terminal en esa carpeta:
+   - Pulsa la tecla Windows.
+   - Escribe "cmd" y pulsa Enter.
+   - Escribe:
+
+     cd C:\Users\TU_USUARIO\Desktop\mi-nueva-web
+
+     (ajusta la ruta a donde tengas la carpeta).
+
+Ahora estás dentro del proyecto.
+
+
+--------------------------------------------------
+4. INSTALAR DEPENDENCIAS DEL PROYECTO
+--------------------------------------------------
+
+Este proyecto usa paquetes (librerías) que se instalan con npm.
+
+1. Asegúrate de estar dentro de la carpeta del proyecto en la terminal.
+   - Ejemplo: C:\Users\TU_USUARIO\Desktop\mi-nueva-web
+
+2. Escribe:
+
+   npm install
+
+3. Pulsa Enter.
+
+4. Espera a que termine. Puede tardar varios minutos la primera vez.
+   - Verás muchos mensajes. Es normal.
+   - Cuando vuelva a aparecer la línea de comandos (por ejemplo "C:\...>"), ha terminado.
+
+
+--------------------------------------------------
+5. ARRANCAR EL PROYECTO EN MODO DESARROLLO
+--------------------------------------------------
+
+1. En la misma terminal (ya con dependencias instaladas), escribe:
+
+   npm run dev
+
+2. Pulsa Enter.
+
+3. Verás algo como:
+   - "Local:   http://localhost:5173/"
+
+4. Abre tu navegador (Chrome, Edge, etc.).
+5. Escribe en la barra de direcciones:
+
+   http://localhost:5173
+
+6. Deberías ver la página de inicio de la plantilla.
+
+IMPORTANTE:
+- No cierres la terminal mientras quieras seguir viendo la web.
+- Si cierras la terminal, el servidor se detiene y la página dejará de cargar.
+
+
+--------------------------------------------------
+6. ENTENDER LO MÍNIMO DE LA ESTRUCTURA
+--------------------------------------------------
+
+No necesitas saber todo, pero sí estas dos ideas:
+
+1. El archivo de la página principal (home) está en:
+   - src\routes\+page.svelte
+
+2. Los componentes "base" que se pueden reutilizar están en:
+   - src\lib\components\ui
+
+3. La landing de ejemplo completa está en:
+   - src\routes\examples\landing\+page.svelte
+
+Si trabajas con un editor como VS Code o Cursor:
+- Abre la carpeta del proyecto en el editor.
+- Luego abre esos archivos para ver el código.
+
+
+--------------------------------------------------
+7. TU PRIMER CAMBIO: EDITAR EL TEXTO PRINCIPAL
+--------------------------------------------------
+
+Objetivo: cambiar el texto que se ve en la home.
+
+PASOS:
+
+1. Abre el archivo:
+   - src\routes\+page.svelte
+
+2. Dentro verás el uso de un componente llamado HeroSection.
+   Ejemplo aproximado:
+
+   <HeroSection
+     eyebrow="Starter SvelteKit"
+     title="Plantilla lista para lanzar tus próximas interfaces."
+     subtitle="Usa esta base como punto de partida..."
+     ...
+   />
+
+3. Cambia estos textos por los de tu proyecto:
+   - eyebrow -> algo corto, como "Mi producto" o "SaaS para equipos".
+   - title -> frase principal de tu producto.
+   - subtitle -> frase breve explicando qué hace.
+
+4. Guarda el archivo (Ctrl + S).
+
+5. Mira el navegador:
+   - La página debería recargarse sola.
+   - Verás tus nuevos textos.
+
+
+--------------------------------------------------
+8. CAMBIAR LOS BOTONES (CTA)
+--------------------------------------------------
+
+En el mismo componente HeroSection:
+
+1. Verás algo como:
+
+   primaryLabel="Ver ejemplo completo"
+   primaryHref="/examples/landing"
+
+   secondaryLabel="Explorar componentes base"
+   secondaryHref="#features"
+
+2. Cambia:
+   - primaryLabel -> texto del botón principal (por ejemplo "Empezar ahora").
+   - primaryHref  -> a dónde lleva (por ahora puedes dejarlo como "/examples/landing"
+                     o cambiarlo más tarde).
+
+   - secondaryLabel -> texto del botón secundario (por ejemplo "Saber más").
+   - secondaryHref  -> por ejemplo "#features" para bajar a la sección de features.
+
+3. Guarda el archivo.
+4. Revisa en el navegador que los cambios se vean bien.
+
+
+--------------------------------------------------
+9. CAMBIAR LAS "FEATURES" (CARACTERÍSTICAS)
+--------------------------------------------------
+
+En el mismo archivo src\routes\+page.svelte, más abajo hay algo como:
+
+   <FeaturesSection
+     ...
+     items={[
+       {
+         icon: '✨',
+         title: 'Hero adaptable',
+         description: 'Título, subtítulo...'
+       },
+       ...
+     ]}
+   />
+
+Cada objeto dentro del array "items" es una característica.
+
+Para adaptar a tu proyecto:
+
+1. Cambia "icon" por otro emoji si quieres (o déjalo igual).
+2. Cambia "title" por el nombre de la característica.
+3. Cambia "description" por una breve explicación.
+
+Puedes:
+- Editar las 4 que vienen.
+- Añadir más copiando y pegando bloques similares.
+
+Ejemplo para añadir una nueva:
+
+   {
+     icon: '🛡️',
+     title: 'Seguridad integrada',
+     description: 'Descripción de tu nueva ventaja.'
+   }
+
+No olvides separar los objetos con comas.
+
+
+--------------------------------------------------
+10. VER LA LANDING COMPLETA DE EJEMPLO
+--------------------------------------------------
+
+La plantilla trae una landing más grande para inspirarte.
+
+1. Asegúrate de que el servidor está corriendo:
+
+   npm run dev
+
+2. En el navegador, ve a:
+
+   http://localhost:5173/examples/landing
+
+3. Verás una página larga con muchas secciones:
+   - Hero complejo.
+   - Bloques de features.
+   - Pricing, testimonios, etc.
+
+Puedes usar esta página para:
+- Ver cómo se estructura un proyecto más grande.
+- Tomar ideas de diseño.
+- Copiar secciones concretas a tu propia home.
+
+
+--------------------------------------------------
+11. PERSONALIZAR COLORES BÁSICOS
+--------------------------------------------------
+
+Para cambiar el color principal (acentos, botones, etc.):
+
+1. Abre el archivo:
+   - src\app.css
+
+2. Busca variables como:
+   - --accent
+   - --accent-hover
+   - --text-main
+   - --text-secondary
+
+3. Cambia sus valores por los colores de tu marca.
+   - Usa códigos HEX (por ejemplo: #ff0000) o nombres (por ejemplo: royalblue).
+
+4. Guarda y revisa en el navegador.
+
+No necesitas tocar nada de Svelte para este paso: solo CSS.
+
+
+--------------------------------------------------
+12. GUARDAR Y VOLVER A TRABAJAR OTRO DÍA
+--------------------------------------------------
+
+Cuando termines una sesión:
+
+1. Ve a la terminal donde corre "npm run dev".
+2. Pulsa Ctrl + C para detener el servidor.
+3. Cierra la terminal si quieres.
+
+Otro día, para volver a trabajar:
+
+1. Abre una nueva terminal.
+2. Ve a la carpeta del proyecto, por ejemplo:
+
+   cd C:\Users\TU_USUARIO\Desktop\mi-nueva-web
+
+3. Ejecuta:
+
+   npm run dev
+
+4. Abre el navegador en:
+
+   http://localhost:5173
+
+Y seguirás donde lo dejaste.
+
+
+--------------------------------------------------
+13. SI ALGO FALLA
+--------------------------------------------------
+
+Problema frecuente 1: "npm run dev" no funciona
+-----------------------------------------------
+
+1. Asegúrate de estar en la carpeta del proyecto:
+   - Usa "cd RUTA_DEL_PROYECTO".
+
+2. Comprueba que hiciste "npm install" al menos una vez.
+   - Si no estás seguro, vuelve a ejecutarlo:
+
+     npm install
+
+3. Luego prueba otra vez:
+
+   npm run dev
+
+
+Problema frecuente 2: la página no carga
+----------------------------------------
+
+1. Comprueba que la terminal donde lanzaste "npm run dev" sigue abierta.
+2. Asegúrate de que la dirección del navegador es:
+   - http://localhost:5173
+
+
+Problema frecuente 3: toqué código y ahora da error
+----------------------------------------------------
+
+1. Fíjate en el mensaje de error en la terminal.
+2. Si no sabes arreglarlo:
+   - Deshaz el último cambio que hiciste.
+   - Vuelve a dejar el archivo como estaba (si usas Git, puedes hacer "git status" y "git restore").
+
+
+--------------------------------------------------
+14. SIGUIENTES PASOS (CUANDO YA TE SIENTAS CÓMODO)
+--------------------------------------------------
+
+Cuando estes más cómodo con la plantilla, puedes:
+
+1. Explorar `src\lib\components\ui` para ver cómo están hechos los componentes base.
+2. Copiar componentes de `src\lib\components` a otra carpeta y adaptarlos a tu marca.
+3. Leer el archivo README.md para tener una explicación más técnica y detallada.
+
+No tengas prisa por entenderlo todo. Empieza por:
+- Cambiar textos.
+- Cambiar colores.
+- Añadir o quitar secciones sencillas.
+
+Con eso ya estarás aprovechando la plantilla para tus propios proyectos.
+
