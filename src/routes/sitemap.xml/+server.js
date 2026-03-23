@@ -1,12 +1,25 @@
 import { env } from '$env/dynamic/public';
 
 const DEFAULT_SITE_URL = 'http://localhost:5173';
-const staticRoutes = ['/', '/examples/landing'];
+const staticRoutes = [
+	'/',
+	'/proyectos/vshield',
+	'/proyectos/ember-iron',
+	'/proyectos/galeria-nova',
+	'/proyectos/chatbot',
+	'/proyectos/novakit'
+];
 
 /** @param {string | undefined} url */
 const normalizeBaseUrl = (url) => {
-	const parsed = new URL(url || DEFAULT_SITE_URL);
-	return parsed.toString().replace(/\/$/, '');
+	try {
+		const candidate = typeof url === 'string' ? url.trim() : '';
+		const parsed = new URL(candidate || DEFAULT_SITE_URL);
+		return parsed.toString().replace(/\/$/, '');
+	} catch {
+		const parsed = new URL(DEFAULT_SITE_URL);
+		return parsed.toString().replace(/\/$/, '');
+	}
 };
 
 export const GET = () => {
