@@ -365,5 +365,85 @@
     "statusFallback": "ALC / ESP",
     "backToTopAria": "Volver arriba",
     "designedBy": "Diseñado por"
+  },
+  "kronos": {
+    "hero": {
+      "eyebrow": "v1.0 // DEEPFAKE DEFENSE SUITE",
+      "subtitle": "Verificación de identidad y contenido digital."
+    },
+    "ticker": {
+      "aria": "Flujo técnico de detecciones",
+      "items": [
+        { "pre": ">> Analizando artefactos de compresión MP4", "tail": "[OK]" },
+        { "pre": ">> Verificando patrón de vida en vídeo", "tail": "[OK]" },
+        { "pre": ">> Detectado patrón de IA en audio", "tail": "[BLOQUEADO]" },
+        { "pre": ">> Validación de identidad acústica iniciada", "tail": "[EN PROCESO]" },
+        { "pre": ">> Auditoría de metadatos y huellas de encoder", "tail": "[EN CURSO]" },
+        { "pre": ">> Evaluando consistencia temporal de landmarks", "tail": "[OK]" }
+      ]
+    },
+    "footer": {
+      "aria": "Firma de autor",
+      "socialAria": "Enlaces sociales",
+      "developedBy": "© 2026 KRONOS // DESARROLLADO POR",
+      "name": "MOISES VALERO"
+    }
+  },
+  "scanner": {
+    "details": {
+      "state": "Estado de validación",
+      "confidence": "Nivel de confianza",
+      "score": "Score (0–100)",
+      "file": "Archivo",
+      "weight": "Peso"
+    },
+    "chip": "KRONOS · Deepfake Defense Suite",
+    "titles": {
+      "video": "Verificación de vídeo",
+      "image": "Verificación de imagen",
+      "audio": "Verificación de audio",
+      "text": "Verificación de texto",
+      "link": "Verificación por enlace"
+    },
+    "tabs": {
+      "video": "VÍDEO",
+      "image": "IMAGEN",
+      "audio": "AUDIO",
+      "text": "TEXTO",
+      "link": "ENLACE"
+    },
+    "dropzone": {
+      "strongVideo": "Arrastra un vídeo aquí o pulsa para cargar",
+      "strongImage": "Arrastra una imagen aquí o pulsa para cargar",
+      "strongAudio": "Arrastra un audio aquí o pulsa para cargar",
+      "formatsVideo": "Formatos soportados: MP4, MOV (Máx: 150MB). Análisis biométrico local.",
+      "formatsImage": "Formatos soportados: JPG, PNG (Máx: 150MB). Auditoría visual local.",
+      "formatsAudio": "Formatos soportados: MP3, WAV, M4A/AAC, OGG (Máx: 150MB). Auditoría acústica local. También puedes subir un vídeo para extraer su pista."
+    },
+    "status": {
+      "scanning": "Escaneando"
+    },
+    "buttons": {
+      "reset": "Reiniciar sesión"
+    },
+    "telemetry": {
+      "title": "Detalles de validación",
+      "sub": "Indicadores y trazabilidad del análisis local"
+    },
+    "text": {
+      "analyze": "Analizar texto",
+      "hint": "Pega un texto en el panel y pulsa Analizar texto."
+    },
+    "link": {
+      "chip": "LINK INTAKE · PRIVACIDAD & CUMPLIMIENTO",
+      "invalid": "Enlace inválido. Revisa el formato (https://...).",
+      "invalidShort": "Enlace inválido",
+      "directFile": "Archivo directo",
+      "body": "Pega un enlace. Por privacidad, KRONOS no descarga contenido: para analizarlo, sube el archivo."
+    },
+    "empty": {
+      "image": "Arrastra un archivo para iniciar el escaneo neuronal.",
+      "audio": "Arrastra un audio (o un vídeo para extraer su pista) para iniciar la auditoría acústica."
+    }
   }
 }

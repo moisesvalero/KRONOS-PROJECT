@@ -8,6 +8,7 @@
   import { jsPDF } from 'jspdf';
   import Radar from '$lib/components/Scanner/Radar.svelte';
   import ReportModal from '$lib/components/ui/ReportModal.svelte';
+  import { t } from '$lib/i18n/index.js';
   import {
     ANALYSIS_DURATION_MS,
     MAX_SCAN_SIZE_BYTES,
@@ -35,8 +36,7 @@
   let linkInput = $state('');
   let linkNormalized = $derived(normalizeUrl(linkInput));
   let linkKind = $derived(classifyLink(linkNormalized));
-  let linkError = $derived(linkInput.trim().length > 0 && !linkNormalized ? 'Enlace inválido. Revisa el formato (https://...).'
-    : null);
+  let linkError = $derived(linkInput.trim().length > 0 && !linkNormalized ? $t('scanner.link.invalid') : null);
   let canvasRef: HTMLCanvasElement | null = $state(null);
   let showReport = $state(false);
   let isBusy = $state(false);
@@ -230,7 +230,7 @@
       host = (u.hostname ?? '').toLowerCase();
       path = (u.pathname ?? '').toLowerCase();
     } catch {
-      return { type: 'INVALID' as const, label: 'Enlace inválido', host: '' };
+      return { type: 'INVALID' as const, label: $t('scanner.link.invalidShort'), host: '' };
     }
 
     const isYouTube = /(^|\.)youtube\.com$/.test(host) || host === 'youtu.be';
@@ -243,7 +243,7 @@
     if (isYouTube) return { type: 'PLATFORM' as const, label: 'YouTube', host };
     if (isTikTok) return { type: 'PLATFORM' as const, label: 'TikTok', host };
     if (isVimeo) return { type: 'PLATFORM' as const, label: 'Vimeo', host };
-    if (isDirectMedia) return { type: 'DIRECT' as const, label: 'Archivo directo', host };
+    if (isDirectMedia) return { type: 'DIRECT' as const, label: $t('scanner.link.directFile'), host };
     return { type: 'GENERIC' as const, label: host || 'Enlace', host };
   }
 
@@ -3378,17 +3378,17 @@
   <div class="main-card">
     <header>
       <div>
-        <p class="chip">KRONOS · Deepfake Defense Suite</p>
+        <p class="chip">{$t('scanner.chip')}</p>
         <h2>
           {activeTab === 'video'
-            ? 'Verificación de vídeo'
+            ? $t('scanner.titles.video')
             : activeTab === 'image'
-              ? 'Verificación de imagen'
+              ? $t('scanner.titles.image')
               : activeTab === 'audio'
-                ? 'Verificación de audio'
+                ? $t('scanner.titles.audio')
               : activeTab === 'text'
-                ? 'Verificación de texto'
-                : 'Verificación por enlace'}
+                ? $t('scanner.titles.text')
+                : $t('scanner.titles.link')}
         </h2>
       </div>
       <span
@@ -3411,7 +3411,7 @@
           clearSession();
         }}
       >
-        VÍDEO
+        {$t('scanner.tabs.video')}
       </button>
       <button
         type="button"
@@ -3422,7 +3422,7 @@
           clearSession();
         }}
       >
-        IMAGEN
+        {$t('scanner.tabs.image')}
       </button>
       <button
         type="button"
@@ -3433,7 +3433,7 @@
           clearSession();
         }}
       >
-        AUDIO
+        {$t('scanner.tabs.audio')}
       </button>
       <button
         type="button"
@@ -3444,7 +3444,7 @@
           clearSession();
         }}
       >
-        TEXTO
+        {$t('scanner.tabs.text')}
       </button>
       <button
         type="button"
@@ -3455,7 +3455,7 @@
           clearSession();
         }}
       >
-        ENLACE
+        {$t('scanner.tabs.link')}
       </button>
     </nav>
 
@@ -3479,17 +3479,17 @@
         <label for="video-input">
           <strong
             >{activeTab === 'video'
-              ? 'Arrastra un video aqui o pulsa para cargar'
+              ? $t('scanner.dropzone.strongVideo')
               : activeTab === 'image'
-                ? 'Arrastra una imagen aqui o pulsa para cargar'
-                : 'Arrastra un audio aqui o pulsa para cargar'}</strong
+                ? $t('scanner.dropzone.strongImage')
+                : $t('scanner.dropzone.strongAudio')}</strong
           >
           <span>
             {activeTab === 'video'
-              ? 'Formatos soportados: MP4, MOV (Máx: 150MB). Análisis biométrico local.'
+              ? $t('scanner.dropzone.formatsVideo')
               : activeTab === 'image'
-                ? 'Formatos soportados: JPG, PNG (Máx: 150MB). Auditoría visual local.'
-                : 'Formatos soportados: MP3, WAV, M4A/ACC, OGG (Máx: 150MB). Auditoría acústica local. También puedes subir un vídeo para extraer su pista.'}
+                ? $t('scanner.dropzone.formatsImage')
+                : $t('scanner.dropzone.formatsAudio')}
           </span>
         </label>
 
@@ -3517,16 +3517,15 @@
           placeholder="Pega aquí un texto para analizar...&#10;Ejemplo: En conclusión, ... Por otro lado, ... Es importante destacar..."
         ></textarea>
         <button type="button" class="text-analyze" on:click={runTextAnalysis} disabled={!textInput.trim() || isBusy}>
-          Analizar Texto
+          {$t('scanner.text.analyze')}
         </button>
       </div>
     {:else}
       <div class="link-panel">
         <div class="link-head">
-          <p class="chip">LINK INTAKE · PRIVACIDAD & CUMPLIMIENTO</p>
+          <p class="chip">{$t('scanner.link.chip')}</p>
           <p class="link-sub">
-            Pega un enlace (YouTube/TikTok/Vimeo u otros). Por privacidad y cumplimiento, KRONOS <strong>no extrae ni descarga</strong> contenido
-            desde plataformas externas. Para una Auditoría de Integridad real, el usuario debe aportar el archivo.
+            {$t('scanner.link.body')}
           </p>
         </div>
 
@@ -3616,17 +3615,17 @@
       {:else if activeTab === 'text'}
         <div class="empty-state">
           <Radar active={scan.phase === 'ANALYZING'} progress={scan.progress} verdict={scan.verdict} />
-          <p>Pega un texto en el panel y pulsa Analizar Texto.</p>
+          <p>{$t('scanner.text.hint')}</p>
         </div>
       {:else if activeTab === 'audio'}
         <div class="empty-state">
           <Radar active={scan.phase === 'ANALYZING'} progress={scan.progress} verdict={scan.verdict} />
-          <p>Arrastra un audio (o un vídeo para extraer su pista) para iniciar la auditoría acústica.</p>
+          <p>{$t('scanner.empty.audio')}</p>
         </div>
       {:else}
         <div class="empty-state">
           <Radar active={scan.phase === 'ANALYZING'} progress={scan.progress} verdict={scan.verdict} />
-          <p>Arrastra un archivo para iniciar el escaneo neuronal.</p>
+          <p>{$t('scanner.empty.image')}</p>
         </div>
       {/if}
     </div>
@@ -3637,7 +3636,7 @@
       </div>
       <p class={scan.phase === 'ANALYZING' ? 'status status-live' : 'status'}>
         {#if scan.phase === 'ANALYZING'}
-          Escaneando
+          {$t('scanner.status.scanning')}
           <span class="dots" aria-hidden="true">
             <span>.</span><span>.</span><span>.</span>
           </span>
@@ -3645,13 +3644,13 @@
           {displayMillis}ms · {Math.round(scan.progress)}%
         {/if}
       </p>
-      <button type="button" class="btn-ghost" on:click={clearSession} disabled={isBusy}>Reiniciar Sesion</button>
+      <button type="button" class="btn-ghost" on:click={clearSession} disabled={isBusy}>{$t('scanner.buttons.reset')}</button>
     </footer>
   </div>
 
   <aside class="telemetry" in:fly={{ x: 20, duration: 250 }}>
-    <h3>Detalles de Validación</h3>
-    <p class="sub">Indicadores y trazabilidad del análisis local</p>
+    <h3>{$t('scanner.telemetry.title')}</h3>
+    <p class="sub">{$t('scanner.telemetry.sub')}</p>
 
     <div class="stream">
       {#each telemetry as line, index (line + index)}
@@ -3692,9 +3691,9 @@
       </div>
 
       <div class="val-rows">
-        <p><span>Estado de Validación</span> <strong class={verdictClass}>{verdictLabelUi(scan.verdict)}</strong></p>
+        <p><span>{$t('scanner.details.state')}</span> <strong class={verdictClass}>{verdictLabelUi(scan.verdict)}</strong></p>
         <p class="row-conf">
-          <span>Nivel de Confianza</span>
+          <span>{$t('scanner.details.confidence')}</span>
           <strong class="conf-wrap">
             <span class="conf-num">{scan.confidence ? `${confidenceSmooth.toFixed(1)}%` : '-'}</span>
             <span class="conf-bar" aria-hidden="true">
@@ -3705,9 +3704,9 @@
             </span>
           </strong>
         </p>
-        <p><span>Score (0–100)</span> <strong class="mono">{scan.riskScore ? `${Math.round(riskScoreSmooth)}` : '-'}</strong></p>
-        <p class="row-file"><span>Archivo</span> <strong class="mono file-val">{selectedFile?.name ?? '—'}</strong></p>
-        <p><span>Peso</span> <strong class="mono">{selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : '—'}</strong></p>
+        <p><span>{$t('scanner.details.score')}</span> <strong class="mono">{scan.riskScore ? `${Math.round(riskScoreSmooth)}` : '-'}</strong></p>
+        <p class="row-file"><span>{$t('scanner.details.file')}</span> <strong class="mono file-val">{selectedFile?.name ?? '—'}</strong></p>
+        <p><span>{$t('scanner.details.weight')}</span> <strong class="mono">{selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : '—'}</strong></p>
       </div>
     </div>
   </aside>

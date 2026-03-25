@@ -3,16 +3,18 @@
   import { fade, fly } from 'svelte/transition';
   import VideoProcessor from '$lib/components/Scanner/VideoProcessor.svelte';
   import { seo, setSeo } from '$lib/seo';
+  import { t } from '$lib/i18n/index.js';
+  import LanguageSelect from '$lib/components/LanguageSelect.svelte';
 
   const baseUrl = new URL(env.PUBLIC_SITE_URL || 'http://localhost:5173').toString().replace(/\/$/, '');
-  const tickerItems: Array<{ pre: string; tail: string }> = [
-    { pre: '>> Analizando Artefactos de Compresión MP4', tail: '[OK]' },
-    { pre: '>> Verificando Parpadeo Humano en Vídeo', tail: '[OK]' },
-    { pre: '>> Detectado Patrón de IA en Audio', tail: '[BLOQUEADO]' },
-    { pre: '>> Validación de Identidad Acústica Iniciada', tail: '[EN PROCESO]' },
-    { pre: '>> Auditoría de Metadatos y Huellas de Encoder', tail: '[EN CURSO]' },
-    { pre: '>> Evaluando Consistencia Temporal de Landmarks', tail: '[OK]' }
-  ];
+  const tickerItems = $derived([
+    { pre: $t('kronos.ticker.items.0.pre'), tail: $t('kronos.ticker.items.0.tail') },
+    { pre: $t('kronos.ticker.items.1.pre'), tail: $t('kronos.ticker.items.1.tail') },
+    { pre: $t('kronos.ticker.items.2.pre'), tail: $t('kronos.ticker.items.2.tail') },
+    { pre: $t('kronos.ticker.items.3.pre'), tail: $t('kronos.ticker.items.3.tail') },
+    { pre: $t('kronos.ticker.items.4.pre'), tail: $t('kronos.ticker.items.4.tail') },
+    { pre: $t('kronos.ticker.items.5.pre'), tail: $t('kronos.ticker.items.5.tail') }
+  ]);
 
   setSeo({
     title: 'KRONOS | Deepfake Defense Suite',
@@ -43,16 +45,21 @@
 
 <main class="kronos-page">
   <section class="hero" in:fade={{ duration: 300 }}>
-    <p class="eyebrow">v1.0 // DEEPFAKE DEFENSE SUITE</p>
+    <div class="hero-top">
+      <span class="hero-lang">
+        <LanguageSelect />
+      </span>
+    </div>
+    <p class="eyebrow">{$t('kronos.hero.eyebrow')}</p>
     <h1>KRONOS</h1>
-    <p class="subtitle">Verificación de identidad y contenido digital.</p>
+    <p class="subtitle">{$t('kronos.hero.subtitle')}</p>
   </section>
 
   <section class="processor-wrap" in:fly={{ y: 18, duration: 300 }}>
     <VideoProcessor />
   </section>
 
-  <section class="ticker" aria-label="Flujo técnico de detecciones">
+  <section class="ticker" aria-label={$t('kronos.ticker.aria')}>
     <div class="ticker-viewport">
       <div class="ticker-track" aria-hidden="false">
         {#each tickerItems as item, i}
@@ -79,16 +86,16 @@
     </div>
   </section>
 
-  <footer class="kronos-footer" aria-label="Firma de autor">
+  <footer class="kronos-footer" aria-label={$t('kronos.footer.aria')}>
     <div class="kronos-footer-inner">
       <p class="kronos-footer-left">
-        © 2026 KRONOS // DESARROLLADO POR
+        {$t('kronos.footer.developedBy')}
         <a class="kronos-footer-link" href="https://moisesvalero.es/" target="_blank" rel="noopener noreferrer"
-          >MOISES VALERO</a
+          >{$t('kronos.footer.name')}</a
         >.
       </p>
 
-      <p class="kronos-footer-right" aria-label="Enlaces sociales">
+      <p class="kronos-footer-right" aria-label={$t('kronos.footer.socialAria')}>
         <a class="kronos-footer-link" href="https://github.com/moisesvalero" target="_blank" rel="noopener noreferrer"
           >GitHub</a
         >
@@ -127,6 +134,21 @@
     margin: 0 auto;
     text-align: center;
     padding: 0 0 0.9rem;
+    position: relative;
+  }
+
+  .hero-top {
+    position: absolute;
+    right: 0;
+    top: -8px;
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+    pointer-events: none;
+  }
+
+  .hero-lang {
+    pointer-events: auto;
   }
 
   .eyebrow {
