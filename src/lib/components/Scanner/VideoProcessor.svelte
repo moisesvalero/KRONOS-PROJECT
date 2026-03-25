@@ -32,6 +32,11 @@
   let imageUrl = $state('');
   let imageRef: HTMLImageElement | null = $state(null);
   let audioSummary = $state('');
+  /** Último análisis de vídeo serializable (replay / benchmark / captura). */
+  let videoExportFeatures = $state<{
+    forensic: Record<string, number | boolean>;
+    biometric: Record<string, number | boolean>;
+  } | null>(null);
   let textInput = $state('');
   let textPreview = $state('');
   let linkInput = $state('');
@@ -115,6 +120,58 @@
 
   const ensemble = new EnsembleManager();
 
+  function buildVideoFeaturesForExport(frameResult: {
+    roiPerfectPts?: number;
+    roiNoiseMismatchPts?: number;
+    roiNoiseFace?: number;
+    roiNoiseBg?: number;
+    roiEdgeFace?: number;
+    roiEdgeBg?: number;
+    blinkWarning?: boolean;
+    suspiciousJitter?: boolean;
+    suspiciousLowConfidence?: boolean;
+    maskJitterWarning?: boolean;
+    reliableFaceFrames?: number;
+    minScore?: number;
+    maxJitter?: number;
+    blinkCount?: number;
+    maskJitterMaxScore?: number;
+  }) {
+    const rf = Number(frameResult.reliableFaceFrames ?? 0);
+    const bc = Number(frameResult.blinkCount ?? 0);
+    const minC = Number(frameResult.minScore ?? 0);
+    const maxJ = Number(frameResult.maxJitter ?? 0);
+    const portraitHint =
+      rf >= 14 &&
+      bc === 0 &&
+      !frameResult.blinkWarning &&
+      minC >= 0.9 &&
+      maxJ <= 0.021 &&
+      !frameResult.suspiciousLowConfidence;
+    return {
+      forensic: {
+        roiPerfectPts: Number(frameResult.roiPerfectPts ?? 0),
+        roiNoiseMismatchPts: Number(frameResult.roiNoiseMismatchPts ?? 0),
+        roiNoiseFace: Number(frameResult.roiNoiseFace ?? 0),
+        roiNoiseBg: Number(frameResult.roiNoiseBg ?? 0),
+        roiEdgeFace: Number(frameResult.roiEdgeFace ?? 0),
+        roiEdgeBg: Number(frameResult.roiEdgeBg ?? 0),
+        videoPortraitSyntheticHint: portraitHint
+      },
+      biometric: {
+        blinkWarning: Boolean(frameResult.blinkWarning),
+        suspiciousJitter: Boolean(frameResult.suspiciousJitter),
+        suspiciousLowConfidence: Boolean(frameResult.suspiciousLowConfidence),
+        maskJitterWarning: Boolean(frameResult.maskJitterWarning),
+        reliableFaceFrames: rf,
+        minFaceConfidence: minC,
+        maxLandmarkJitter: maxJ,
+        blinkCount: bc,
+        maskJitterMaxScore: Number(frameResult.maskJitterMaxScore ?? 0)
+      }
+    };
+  }
+
   function toEnsembleVotesExport(votes: unknown) {
     const arr = Array.isArray(votes) ? (votes as any[]) : [];
     return arr.map((v) => {
@@ -193,7 +250,9 @@
                 edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic)
               }
             }
-          : null
+          : mediaKind === 'video' && videoExportFeatures
+            ? videoExportFeatures
+            : null
     };
 
     downloadJsonFile(`${selectedFile.name}.kronos.json`, payload);
@@ -247,7 +306,9 @@
                 edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic)
               }
             }
-          : null
+          : mediaKind === 'video' && videoExportFeatures
+            ? videoExportFeatures
+            : null
     };
     return payload;
   }
@@ -2867,6 +2928,7 @@
     mediaKind = activeTab === 'audio' ? 'audio' : isImage ? 'image' : 'video';
     showReport = false;
     resetScanner();
+    videoExportFeatures = null;
     fileHashHex = '';
     elaOverlayCanvas = null;
     audioSummary = '';
@@ -3047,18 +3109,31 @@
           await withTimeout(ensureModelsLoaded(), 20000, 'FACE_MODELS');
           const frameResult = await withTimeout(analyzeFramesReal(), 70000, 'VIDEO_ANALYSIS');
 
+          videoExportFeatures = buildVideoFeaturesForExport(frameResult);
+
           const ens = ensemble.evaluate({
             kind: 'video',
             forensic: {
               roiPerfectPts: Number((frameResult as any).roiPerfectPts ?? 0),
-              roiNoiseMismatchPts: Number((frameResult as any).roiNoiseMismatchPts ?? 0)
+              roiNoiseMismatchPts: Number((frameResult as any).roiNoiseMismatchPts ?? 0),
+              roiNoiseFace: Number((frameResult as any).roiNoiseFace ?? 0),
+              roiNoiseBg: Number((frameResult as any).roiNoiseBg ?? 0),
+              roiEdgeFace: Number((frameResult as any).roiEdgeFace ?? 0),
+              roiEdgeBg: Number((frameResult as any).roiEdgeBg ?? 0),
+              videoPortraitSyntheticHint: Boolean(
+                videoExportFeatures?.forensic?.videoPortraitSyntheticHint ?? false
+              )
             },
             biometric: {
               blinkWarning: Boolean(frameResult.blinkWarning),
               suspiciousJitter: Boolean(frameResult.suspiciousJitter),
               suspiciousLowConfidence: Boolean(frameResult.suspiciousLowConfidence),
               maskJitterWarning: Boolean(frameResult.maskJitterWarning),
-              reliableFaceFrames: Number((frameResult as any).reliableFaceFrames ?? 0)
+              reliableFaceFrames: Number((frameResult as any).reliableFaceFrames ?? 0),
+              minFaceConfidence: Number(frameResult.minScore ?? 0),
+              maxLandmarkJitter: Number(frameResult.maxJitter ?? 0),
+              blinkCount: Number(frameResult.blinkCount ?? 0),
+              maskJitterMaxScore: Number(frameResult.maskJitterMaxScore ?? 0)
             },
             metadata: {
               thirdParty: Boolean(mi?.thirdParty),

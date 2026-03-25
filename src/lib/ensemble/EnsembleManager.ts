@@ -86,6 +86,13 @@ export type ForensicInputs = {
   lightingInconsistencyScore?: number;
   localElaCv?: number;
   localElaPeakRatio?: number;
+  /** Vídeo: textura ROI cara vs fondo (misma escala que face-api pipeline). */
+  roiNoiseFace?: number;
+  roiNoiseBg?: number;
+  roiEdgeFace?: number;
+  roiEdgeBg?: number;
+  /** Vídeo: cara muy estable, sin parpadeos detectados en ventana (proxy Sora/deepfake limpio). */
+  videoPortraitSyntheticHint?: boolean;
 };
 
 export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weights: EnsembleWeights): SpecialistVote {
@@ -99,6 +106,32 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
   // ROI contrast is a strong forgery proxy (already gated by face confidence upstream)
   score += Number(input.roiPerfectPts ?? 0);
   score += Number(input.roiNoiseMismatchPts ?? 0);
+
+  // Vídeo: refuerzo acoplado a ROI + ratios cara/fondo (deepfake hiper-limpio vs móvil real).
+  if (kind === 'video') {
+    const rpp = Number(input.roiPerfectPts ?? 0);
+    const rnm = Number(input.roiNoiseMismatchPts ?? 0);
+    const nrf = Number(input.roiNoiseFace ?? 0);
+    const nrb = Number(input.roiNoiseBg ?? 0);
+    const ef = Number(input.roiEdgeFace ?? 0);
+    const eb = Number(input.roiEdgeBg ?? 0);
+    if (rpp >= 40 || rnm >= 20) {
+      score += 38;
+    }
+    if (nrb > 1e-8 && nrf > 1e-8) {
+      const nr = nrf / nrb;
+      if (nr < 0.62 && nrf > 0.0025) score += 22;
+      if (nr < 0.5 && rnm >= 20) score += 18;
+    }
+    if (eb > 1e-6 && ef > 0.5) {
+      const er = ef / eb;
+      if (er < 0.58 && rpp >= 40) score += 16;
+    }
+    if (input.videoPortraitSyntheticHint) {
+      score += 88;
+    }
+    score = Math.min(score, 100);
+  }
 
   // Image forensic: balancear JPEG/cámara real (WhatsApp, móvil) vs generadores tipo Gemini/Grok.
   if (kind === 'image') {
@@ -307,6 +340,10 @@ export type BiometricInputs = {
   suspiciousLowConfidence?: boolean;
   maskJitterWarning?: boolean;
   reliableFaceFrames?: number;
+  minFaceConfidence?: number; // 0..1
+  maxLandmarkJitter?: number;
+  blinkCount?: number;
+  maskJitterMaxScore?: number;
 };
 
 export function BiometricAnalyst(kind: EvidenceKind, input: BiometricInputs, weights: EnsembleWeights): SpecialistVote {
@@ -322,8 +359,31 @@ export function BiometricAnalyst(kind: EvidenceKind, input: BiometricInputs, wei
   if (input.suspiciousJitter) score += 15;
   if (input.suspiciousLowConfidence) score += 10;
 
-  // If we barely had reliable face frames, downweight biometric output
   const rf = Number(input.reliableFaceFrames ?? 0);
+  const minC = Number(input.minFaceConfidence ?? 1);
+  const maxJ = Number(input.maxLandmarkJitter ?? 0);
+  const bc = Number(input.blinkCount ?? 0);
+  const mjs = Number(input.maskJitterMaxScore ?? 0);
+
+  if (mjs >= 4) score += Math.min(34, 12 + mjs * 1.15);
+  if (mjs >= 12) score += 14;
+
+  if (
+    rf >= 14 &&
+    bc === 0 &&
+    !input.blinkWarning &&
+    minC >= 0.9 &&
+    maxJ <= 0.021 &&
+    !input.suspiciousLowConfidence
+  ) {
+    score += 46;
+  }
+
+  if (rf >= 18 && maxJ >= 0.03 && !input.blinkWarning) {
+    score = Math.max(0, score - 14);
+  }
+
+  // If we barely had reliable face frames, downweight biometric output
   if (rf > 0 && rf < 10) score *= 0.6;
 
   return {

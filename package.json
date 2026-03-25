@@ -13,7 +13,9 @@
 		"studio": "npx sanity dev",
 		"benchmark": "node scripts/benchmark.js",
 		"capture:dataset": "node scripts/capture-dataset.js",
-		"replay:ensemble": "tsx scripts/replay-ensemble.ts"
+		"capture:video": "node scripts/capture-dataset.js --video-only",
+		"replay:ensemble": "tsx scripts/replay-ensemble.ts",
+		"replay:ensemble:impute-video": "tsx scripts/replay-ensemble.ts --impute-video"
 	},
 	"devDependencies": {
 		"@sanity/cli": "^6.2.0",

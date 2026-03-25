@@ -24,12 +24,13 @@ const REALS_DIR = path.join(ROOT, 'tests', 'dataset', 'reales');
 const FAKES_DIR = path.join(ROOT, 'tests', 'dataset', 'fakes');
 
 function parseArgs(argv) {
-  const out = { url: 'http://localhost:5173', headful: false, force: false };
+  const out = { url: 'http://localhost:5173', headful: false, force: false, videoOnly: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--url') out.url = argv[i + 1] ?? out.url;
     if (a === '--headful') out.headful = true;
     if (a === '--force') out.force = true;
+    if (a === '--video-only' || a === '--videoOnly') out.videoOnly = true;
   }
   return out;
 }
@@ -102,7 +103,7 @@ async function captureOne(page, filePath, sidecarPath) {
       return Boolean(el && (el.textContent ?? '').trim() === 'COMPLETED');
     },
     null,
-    { timeout: 360000 }
+    { timeout: 900000 }
   );
 
   await page.waitForFunction(
@@ -137,6 +138,7 @@ async function run() {
 
   const queue = [];
   for (const item of all) {
+    if (args.videoOnly && kindFromPath(item.file) !== 'video') continue;
     const sidecar = `${item.file}.kronos.json`;
     const has = await fileExists(sidecar);
     if (args.force || !has) queue.push({ ...item, sidecar });
@@ -146,6 +148,7 @@ async function run() {
   console.log(`- url: ${url}`);
   console.log(`- headful: ${headful}`);
   console.log(`- force: ${args.force}`);
+  console.log(`- video-only: ${args.videoOnly}`);
   console.log(`- total media: ${all.length}`);
   console.log(`- to capture: ${queue.length}`);
 
