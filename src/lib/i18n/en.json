@@ -420,7 +420,8 @@
       "scanning": "Scanning"
     },
     "buttons": {
-      "reset": "Reset session"
+      "reset": "Reset session",
+      "exportJson": "Export analysis JSON"
     },
     "telemetry": {
       "title": "Validation details",

@@ -10,7 +10,8 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"studio": "npx sanity dev"
+		"studio": "npx sanity dev",
+		"benchmark": "node scripts/benchmark.js"
 	},
 	"devDependencies": {
 		"@sanity/cli": "^6.2.0",

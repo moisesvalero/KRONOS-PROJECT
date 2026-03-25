@@ -53,7 +53,8 @@
       "scanning": "Scan läuft"
     },
     "buttons": {
-      "reset": "Sitzung zurücksetzen"
+      "reset": "Sitzung zurücksetzen",
+      "exportJson": "Analyse-JSON exportieren"
     },
     "telemetry": {
       "title": "Validierungsdetails",

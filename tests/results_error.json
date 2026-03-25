@@ -1,0 +1,232 @@
+{
+  "generatedAt": "2026-03-25T13:38:26.902Z",
+  "thresholds": {
+    "fakeHit": 70,
+    "realHit": 40
+  },
+  "summary": {
+    "total": 31,
+    "hits": 0,
+    "fails": 31,
+    "precisionPct": 0
+  },
+  "failures": [
+    {
+      "file": "tests\\dataset\\reales\\20200808_202521.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\20200809_095312.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\20200809_095433.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\estasiquees.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\HEOpOzbaQAAiAVQ.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG-20130501-WA0000.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG-20130822-WA0000.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG-20240922-WA0054.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG-20240922-WA0068.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG_0716.JPEG",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG_0760.JPEG",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG_0794.JPEG",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG_20210817_174225.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG_20210817_185317.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG_20240929_163745.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG_20240930_120343.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG_20240930_163545.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\reales\\IMG_20240930_220647.jpg",
+      "truth": "REAL",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\879422072_248554297_1024x576.webp",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\Diseñador de Galería Nova trabajando en su escritorio con dos monitores, creando arte generativo y cuadros modernos minimalistas.png",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\Fotos-del-papa-inteligencia-artificial-scaled.webp",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\Gemini_Generated_Image_mlyminmlyminmlym.png",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\Gemini_Generated_Image_rp2uwyrp2uwyrp2u.png",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\Gemini_Generated_Image_vfyisavfyisavfyi.png",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\Gemini_Generated_Image_x418dcx418dcx418.png",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\HEO4-e9aEAAkP6-.jpg",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\HEOpmUgXgAA6mX4.jpg",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\HEQCn7dbIAAuLGj.jpg",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\HEQLzsNXkAAAAr5.jpg",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\HH2YWSCMN5CFZBVZCSM2XFJBP4.jpg",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    },
+    {
+      "file": "tests\\dataset\\fakes\\policia-denuncia-aparicion-falsa-agente-creada-inteligencia-artificial_104.webp",
+      "truth": "FAKE",
+      "reason": "MISSING_SIDECAR_JSON",
+      "blame": "N/A",
+      "debug": null
+    }
+  ]
+}

@@ -3,6 +3,16 @@ import { get, writable } from 'svelte/store';
 export type ScanPhase = 'IDLE' | 'UPLOADING' | 'ANALYZING' | 'COMPLETED';
 export type ScanVerdict = 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA';
 
+export type EnsembleVoteExport = {
+  key?: string;
+  label?: string;
+  fake?: number; // 0..100
+  real?: number; // 0..100
+  weight?: number;
+  applicable?: boolean;
+  notes?: string[];
+};
+
 export interface ScannerState {
   phase: ScanPhase;
   progress: number;
@@ -15,6 +25,7 @@ export interface ScannerState {
   reason: string;
   warnings: string[];
   logs: string[];
+  ensembleVotes?: EnsembleVoteExport[];
   completedAt: string | null;
 }
 
@@ -88,6 +99,7 @@ const initialState: ScannerState = {
   reason: '',
   warnings: [],
   logs: [],
+  ensembleVotes: [],
   completedAt: null
 };
 
@@ -248,6 +260,7 @@ export function completeScan(input: {
   reason: string;
   warnings?: string[];
   logsExtra?: string[];
+  ensembleVotes?: EnsembleVoteExport[];
 }) {
   scannerState.update((state) => ({
     ...state,
@@ -258,6 +271,7 @@ export function completeScan(input: {
     riskScore: input.riskScore,
     reason: input.reason,
     warnings: input.warnings ?? [],
+    ensembleVotes: Array.isArray(input.ensembleVotes) ? input.ensembleVotes : state.ensembleVotes ?? [],
     logs: [...state.logs, ...(input.logsExtra ?? []), 'FORENSIC_SEQUENCE_COMPLETE'],
     completedAt: new Date().toISOString()
   }));

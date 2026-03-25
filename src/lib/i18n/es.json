@@ -424,7 +424,8 @@
       "scanning": "Escaneando"
     },
     "buttons": {
-      "reset": "Reiniciar sesión"
+      "reset": "Reiniciar sesión",
+      "exportJson": "Exportar JSON de análisis"
     },
     "telemetry": {
       "title": "Detalles de validación",

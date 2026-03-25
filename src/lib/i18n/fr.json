@@ -53,7 +53,8 @@
       "scanning": "Analyse en cours"
     },
     "buttons": {
-      "reset": "Réinitialiser la session"
+      "reset": "Réinitialiser la session",
+      "exportJson": "Exporter le JSON d’analyse"
     },
     "telemetry": {
       "title": "Détails de validation",

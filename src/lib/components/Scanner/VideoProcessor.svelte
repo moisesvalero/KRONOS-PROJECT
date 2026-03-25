@@ -115,6 +115,61 @@
 
   const ensemble = new EnsembleManager();
 
+  function toEnsembleVotesExport(votes: unknown) {
+    const arr = Array.isArray(votes) ? (votes as any[]) : [];
+    return arr.map((v) => {
+      const fake = Math.max(0, Math.min(100, Number(v?.fakeScore0to100 ?? v?.fake ?? 0)));
+      const real = Math.max(0, Math.min(100, 100 - fake));
+      return {
+        key: String(v?.key ?? ''),
+        label: String(v?.label ?? v?.key ?? 'unknown'),
+        fake,
+        real,
+        weight: Number(v?.weight ?? 0),
+        applicable: Boolean(v?.applicable ?? true),
+        notes: Array.isArray(v?.notes) ? v.notes.map(String) : []
+      };
+    });
+  }
+
+  function downloadJsonFile(filename: string, payload: unknown) {
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  function exportAnalysisJson() {
+    if (!selectedFile) return;
+    if (scan.phase !== 'COMPLETED') return;
+
+    const payload = {
+      schema: 'kronos.analysis.v1',
+      generatedAt: new Date().toISOString(),
+      file: {
+        name: selectedFile.name,
+        sizeBytes: selectedFile.size,
+        kind: mediaKind ?? 'unknown',
+        mime: selectedFile.type || null
+      },
+      verdict: scan.verdict,
+      confidence: scan.confidence,
+      riskScore: scan.riskScore,
+      reason: scan.reason,
+      warnings: scan.warnings ?? [],
+      completedAt: scan.completedAt ?? null,
+      ensembleVotes: Array.isArray((scan as any).ensembleVotes) ? (scan as any).ensembleVotes : []
+    };
+
+    downloadJsonFile(`${selectedFile.name}.kronos.json`, payload);
+  }
+
   let animatedLogIndex = $derived(
     scan.phase === 'ANALYZING'
       ? Math.min(
@@ -2643,6 +2698,7 @@
         riskScore,
         reason,
         warnings,
+        ensembleVotes: toEnsembleVotesExport(ens.votes),
         logsExtra: [
           ...formatEnsembleVotes(ens.votes).map((s) => `ENSEMBLE_VOTE: ${s}`),
           `TEXT_CONNECTOR_SCORE: ${result.connectorScore.toFixed(4)}`,
@@ -2844,6 +2900,7 @@
             riskScore,
             reason,
             warnings: warningsAudio,
+            ensembleVotes: toEnsembleVotesExport(ens.votes),
             logsExtra: [
               ...formatEnsembleVotes(ens.votes).map((s) => `ENSEMBLE_VOTE: ${s}`),
               `AUDIO_DURATION_SEC: ${res.durationSec.toFixed(2)}`,
@@ -2937,6 +2994,7 @@
             riskScore,
             reason,
             warnings,
+            ensembleVotes: toEnsembleVotesExport(ens.votes),
             logsExtra: [
               ...formatEnsembleVotes(ens.votes).map((s) => `ENSEMBLE_VOTE: ${s}`),
               modelsReady ? 'FACE_MODELS: READY' : 'FACE_MODELS: OFFLINE',
@@ -3000,6 +3058,7 @@
         imageRenderSignature = Number((imgResult as any).renderSignatureScore ?? 0);
 
         let verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = 'VERIFICADO';
+        let imageEnsVotes: any[] = [];
         if (hardAlert) {
           verdict = 'ALERTA ROJA';
         } else {
@@ -3032,6 +3091,7 @@
           const imgScore = Math.round(ens.finalFakeScore0to100);
           verdict = verdictFromScore(imgScore);
           (imgResult as any).__kronosScore = imgScore;
+          imageEnsVotes = ens.votes as any[];
           (imgResult as any).__kronosEnsembleVotes = formatEnsembleVotes(ens.votes);
         }
 
@@ -3119,6 +3179,7 @@
           riskScore,
           reason,
           warnings,
+          ensembleVotes: toEnsembleVotesExport(imageEnsVotes),
           logsExtra: [
             ...(((imgResult as any).__kronosEnsembleVotes as string[] | undefined) ?? []).map((s) => `ENSEMBLE_VOTE: ${s}`),
             `IMAGE_SHA_STATE: ${fileHashHex ? 'SET' : 'N/A'}`,
@@ -3728,6 +3789,16 @@
         <p><span>{$t('scanner.details.score')}</span> <strong class="mono">{scan.riskScore ? `${Math.round(riskScoreSmooth)}` : '-'}</strong></p>
         <p class="row-file"><span>{$t('scanner.details.file')}</span> <strong class="mono file-val">{selectedFile?.name ?? '—'}</strong></p>
         <p><span>{$t('scanner.details.weight')}</span> <strong class="mono">{selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : '—'}</strong></p>
+        <div class="val-actions">
+          <button
+            type="button"
+            class="btn-mini"
+            on:click={exportAnalysisJson}
+            disabled={!selectedFile || scan.phase !== 'COMPLETED'}
+          >
+            {$t('scanner.buttons.exportJson')}
+          </button>
+        </div>
       </div>
     </div>
   </aside>
@@ -4386,6 +4457,36 @@
   .val-rows {
     display: grid;
     gap: 0.45rem;
+  }
+
+  .val-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.15rem;
+  }
+
+  .btn-mini {
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    padding: 0.42rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: rgba(10, 10, 10, 0.25);
+    color: rgba(255, 255, 255, 0.76);
+    transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease, transform 180ms ease;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  }
+
+  .btn-mini:hover:enabled {
+    border-color: rgba(0, 229, 255, 0.36);
+    background: rgba(0, 229, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+    transform: translateY(-1px);
+  }
+
+  .btn-mini:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 
   .val-rows p {
