@@ -9,6 +9,7 @@
   import Radar from '$lib/components/Scanner/Radar.svelte';
   import ReportModal from '$lib/components/ui/ReportModal.svelte';
   import { t } from '$lib/i18n/index.js';
+  import { EnsembleManager, formatEnsembleVotes } from '$lib/ensemble/EnsembleManager';
   import {
     ANALYSIS_DURATION_MS,
     MAX_SCAN_SIZE_BYTES,
@@ -111,6 +112,8 @@
   });
 
   let confidenceBarTone = $derived(riskScoreTarget > 70 ? 'danger' : riskScoreTarget <= 40 ? 'safe' : 'warn');
+
+  const ensemble = new EnsembleManager();
 
   let animatedLogIndex = $derived(
     scan.phase === 'ANALYZING'
@@ -2604,13 +2607,17 @@
       textTopConnectors = result.topConnectors;
 
       const hardAlert = file.size > MAX_SCAN_SIZE_BYTES;
-      // Voto ponderado (0..100)
-      let score = 0;
-      // Texto: varianza casi nula en longitud de frases (+40)
-      if ((result as any).sentCount >= 4 && (result as any).sentenceLenCv < 0.12) score += 40;
-      // Señal adicional suave: patrón de conectores repetitivos (+25)
-      if (result.llmPattern) score += 25;
-      score = Math.max(0, Math.min(100, score));
+      // Ensemble (0..100)
+      let lingScore = 0;
+      if ((result as any).sentCount >= 4 && (result as any).sentenceLenCv < 0.12) lingScore += 40;
+      if (result.llmPattern) lingScore += 25;
+      lingScore = Math.max(0, Math.min(100, lingScore));
+
+      const ens = ensemble.evaluate({
+        kind: 'text',
+        linguistic: { score0to100: lingScore }
+      });
+      const score = Math.round(ens.finalFakeScore0to100);
 
       let verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = verdictFromScore(score);
       if (hardAlert) verdict = 'ALERTA ROJA';
@@ -2637,6 +2644,7 @@
         reason,
         warnings,
         logsExtra: [
+          ...formatEnsembleVotes(ens.votes).map((s) => `ENSEMBLE_VOTE: ${s}`),
           `TEXT_CONNECTOR_SCORE: ${result.connectorScore.toFixed(4)}`,
           `TEXT_TOP_CONNECTORS: ${(result.topConnectors ?? []).slice(0, 3).join(' | ') || 'NONE'}`,
           `TEXT_SENTENCE_LEN_CV: ${Number((result as any).sentenceLenCv ?? 0).toFixed(3)}`,
@@ -2784,16 +2792,23 @@
           if ((res as any).digitalSilenceGaps >= 2) warningsAudio.push('Silencio digital absoluto entre segmentos (proxy)');
 
           const hardAlert = file.size > MAX_SCAN_SIZE_BYTES || /fake/i.test(file.name);
-          // Voto ponderado (0..100)
-          let score = 0;
-          // Silencio digital absoluto entre palabras (+40)
-          if ((res as any).digitalSilenceGaps >= 2) score += 40;
-          // Falta HF >16kHz (proxy con bandlimitScore) (+30)
-          if (res.sampleRate >= 44100 && res.bandlimitScore > 0.78) score += 30;
-          // Señales adicionales suaves
-          if (res.editCuts >= 2) score += 20;
-          if (res.ttsLike) score += 15;
-          score = Math.max(0, Math.min(100, score));
+          let acousticScore = 0;
+          if ((res as any).digitalSilenceGaps >= 2) acousticScore += 40;
+          if (res.sampleRate >= 44100 && res.bandlimitScore > 0.78) acousticScore += 30;
+          if (res.editCuts >= 2) acousticScore += 20;
+          if (res.ttsLike) acousticScore += 15;
+          acousticScore = Math.max(0, Math.min(100, acousticScore));
+
+          const ens = ensemble.evaluate({
+            kind: 'audio',
+            acoustic: { score0to100: acousticScore },
+            metadata: {
+              thirdParty: Boolean(mi?.thirdParty),
+              originNoVerify: warnings.includes('Origen Digital No Verificado'),
+              missingCameraMeta: missingMobile.length > 0
+            }
+          });
+          const score = Math.round(ens.finalFakeScore0to100);
 
           let verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = verdictFromScore(score);
           if (hardAlert) verdict = 'ALERTA ROJA';
@@ -2830,6 +2845,7 @@
             reason,
             warnings: warningsAudio,
             logsExtra: [
+              ...formatEnsembleVotes(ens.votes).map((s) => `ENSEMBLE_VOTE: ${s}`),
               `AUDIO_DURATION_SEC: ${res.durationSec.toFixed(2)}`,
               `AUDIO_SR: ${res.sampleRate}`,
               `AUDIO_CHANNELS: ${res.channels}`,
@@ -2861,24 +2877,27 @@
           await withTimeout(ensureModelsLoaded(), 20000, 'FACE_MODELS');
           const frameResult = await withTimeout(analyzeFramesReal(), 70000, 'VIDEO_ANALYSIS');
 
-          // Sistema de voto ponderado (0..100) con ROI universal.
-          // Nota: por seguridad, el ROI solo aporta puntos cuando la cara es clara (>=90% por frame).
-          let score = 0;
-          // ROI: cara "más perfecta/suave" vs fondo (+40) / grano no coincide (+20)
-          score += Number((frameResult as any).roiPerfectPts ?? 0);
-          score += Number((frameResult as any).roiNoiseMismatchPts ?? 0);
-          // Parpadeo rítmico o nulo (+30)
-          if (frameResult.blinkWarning) score += 30;
-          // Señales adicionales (peso medio) ya existentes en vídeo
-          if (frameResult.maskJitterWarning) score += 20;
-          if (frameResult.suspiciousJitter) score += 15;
-          if (frameResult.suspiciousLowConfidence) score += 10;
-          // Metadatos solo como señales suaves (evita falsos positivos)
-          if (mi.thirdParty) score += 12;
-          if (warnings.includes('Origen Digital No Verificado')) score += 5;
-          if (missingMobile.length > 0) score += 5;
+          const ens = ensemble.evaluate({
+            kind: 'video',
+            forensic: {
+              roiPerfectPts: Number((frameResult as any).roiPerfectPts ?? 0),
+              roiNoiseMismatchPts: Number((frameResult as any).roiNoiseMismatchPts ?? 0)
+            },
+            biometric: {
+              blinkWarning: Boolean(frameResult.blinkWarning),
+              suspiciousJitter: Boolean(frameResult.suspiciousJitter),
+              suspiciousLowConfidence: Boolean(frameResult.suspiciousLowConfidence),
+              maskJitterWarning: Boolean(frameResult.maskJitterWarning),
+              reliableFaceFrames: Number((frameResult as any).reliableFaceFrames ?? 0)
+            },
+            metadata: {
+              thirdParty: Boolean(mi?.thirdParty),
+              originNoVerify: warnings.includes('Origen Digital No Verificado'),
+              missingCameraMeta: missingMobile.length > 0
+            }
+          });
 
-          score = clamp(score, 0, 100);
+          const score = Math.round(ens.finalFakeScore0to100);
 
           let verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = verdictFromScore(score);
           if (hardAlert) verdict = 'ALERTA ROJA';
@@ -2919,6 +2938,7 @@
             reason,
             warnings,
             logsExtra: [
+              ...formatEnsembleVotes(ens.votes).map((s) => `ENSEMBLE_VOTE: ${s}`),
               modelsReady ? 'FACE_MODELS: READY' : 'FACE_MODELS: OFFLINE',
               `MIN_FACE_CONFIDENCE: ${(frameResult.minScore * 100).toFixed(1)}%`,
               `MAX_LANDMARK_JITTER: ${(frameResult.maxJitter * 100).toFixed(2)}%`,
@@ -2983,36 +3003,36 @@
         if (hardAlert) {
           verdict = 'ALERTA ROJA';
         } else {
-          // Sistema de voto ponderado (0..100): NO “fake por una sola señal”.
-          const localEdit = Boolean((imgResult as any).localEditLikely);
-          const vectorLike = Boolean((imgResult as any).vectorGraphicLike);
-          const textureLike = Boolean(imgResult.textureSynthetic);
-          const veryStrongCombo = Boolean(imgResult.elaSynthetic && imgResult.frequencySynthetic);
-          const roiFaceScore = Number((imgResult as any).roiFaceScore ?? 0);
-          const roiPerfectPts = roiFaceScore >= 0.9 ? Number((imgResult as any).roiPerfectPts ?? 0) : 0;
-          const roiNoiseMismatchPts = roiFaceScore >= 0.9 ? Number((imgResult as any).roiNoiseMismatchPts ?? 0) : 0;
+          const ens = ensemble.evaluate({
+            kind: 'image',
+            forensic: {
+              roiPerfectPts:
+                Number((imgResult as any).roiFaceScore ?? 0) >= 0.9 ? Number((imgResult as any).roiPerfectPts ?? 0) : 0,
+              roiNoiseMismatchPts:
+                Number((imgResult as any).roiFaceScore ?? 0) >= 0.9 ? Number((imgResult as any).roiNoiseMismatchPts ?? 0) : 0,
+              elaSynthetic: Boolean(imgResult.elaSynthetic),
+              frequencySynthetic: Boolean(imgResult.frequencySynthetic),
+              textureSynthetic: Boolean(imgResult.textureSynthetic),
+              edgesSmoothedSynthetic: Boolean(imgResult.edgesSmoothedSynthetic),
+              localEditLikely: Boolean((imgResult as any).localEditLikely),
+              vectorGraphicLike: Boolean((imgResult as any).vectorGraphicLike),
+              noiseMean: Number((imgResult as any).noiseMean ?? 0),
+              noiseUniformity: Number((imgResult as any).noiseUniformity ?? 0),
+              edgePerfectionScore: Number((imgResult as any).edgePerfectionScore ?? 0),
+              edgeSharpnessMean: Number((imgResult as any).edgeSharpnessMean ?? 0),
+              renderSignatureScore: Number((imgResult as any).renderSignatureScore ?? 0)
+            },
+            metadata: {
+              thirdParty: Boolean(mi?.thirdParty),
+              originNoVerify: warnings.includes('Origen Digital No Verificado'),
+              missingCameraMeta: missingMobile.length > 0
+            }
+          });
 
-          const noiseUniformPts =
-            imageNoiseMean > 0 && imageNoiseMean < 0.018 && imageNoiseUniformity > 0.72 ? 40 : 0;
-          const edgePerfectPts =
-            imageEdgePerfection > 0.74 && imageEdgeSharpness > 0.55 && imageNoiseMean < 0.025 ? 20 : 0;
-          const renderSignaturePts = imageRenderSignature > 0.78 && imageNoiseMean < 0.022 ? 40 : 0;
-
-          // Puntos adicionales (menos peso) para señales ya existentes
-          const extraPts =
-            (localEdit ? 25 : 0) +
-            (vectorLike ? 20 : 0) +
-            (textureLike ? 18 : 0) +
-            (veryStrongCombo ? 22 : 0);
-
-          const imgScore = Math.max(
-            0,
-            Math.min(100, noiseUniformPts + edgePerfectPts + renderSignaturePts + extraPts + roiPerfectPts + roiNoiseMismatchPts)
-          );
+          const imgScore = Math.round(ens.finalFakeScore0to100);
           verdict = verdictFromScore(imgScore);
-
-          // Guardamos score/confianza fuera (se usan abajo)
           (imgResult as any).__kronosScore = imgScore;
+          (imgResult as any).__kronosEnsembleVotes = formatEnsembleVotes(ens.votes);
         }
 
         const imgScore = Number((imgResult as any).__kronosScore ?? 0);
@@ -3100,6 +3120,7 @@
           reason,
           warnings,
           logsExtra: [
+            ...(((imgResult as any).__kronosEnsembleVotes as string[] | undefined) ?? []).map((s) => `ENSEMBLE_VOTE: ${s}`),
             `IMAGE_SHA_STATE: ${fileHashHex ? 'SET' : 'N/A'}`,
             `ELA_MEAN: ${(imgResult.elaMean * 100).toFixed(1)}`,
             `ELA_UNIFORMITY: ${(imgResult.elaUniformity * 100).toFixed(1)}`,
