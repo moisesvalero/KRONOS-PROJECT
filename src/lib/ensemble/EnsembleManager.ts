@@ -16,7 +16,8 @@ export type EnsembleWeights = Record<SpecialistKey, number>;
 
 export const DEFAULT_ENSEMBLE_WEIGHTS: EnsembleWeights = {
   biometric: 0.4,
-  forensic: 0.3,
+  // Aggressive recalibration: prioritize pixels over metadata.
+  forensic: 0.7,
   metadata: 0.2,
   other: 0.1,
   acoustic: 0.1,
@@ -68,8 +69,12 @@ export type ForensicInputs = {
 
   // Image-only forensic signals
   elaSynthetic?: boolean;
+  elaUniformity?: number; // 0..1 (higher = more uniform ELA)
   frequencySynthetic?: boolean;
+  freqPeakiness?: number;
+  freqRadialVar?: number;
   textureSynthetic?: boolean;
+  textureRepeatScore?: number; // 0..1
   edgesSmoothedSynthetic?: boolean;
   localEditLikely?: boolean;
   vectorGraphicLike?: boolean;
@@ -78,6 +83,9 @@ export type ForensicInputs = {
   edgePerfectionScore?: number;
   edgeSharpnessMean?: number;
   renderSignatureScore?: number;
+  lightingInconsistencyScore?: number;
+  localElaCv?: number;
+  localElaPeakRatio?: number;
 };
 
 export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weights: EnsembleWeights): SpecialistVote {
@@ -92,23 +100,196 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
   score += Number(input.roiPerfectPts ?? 0);
   score += Number(input.roiNoiseMismatchPts ?? 0);
 
-  // Image forensic stack (conservative, aligns with existing weighted points)
+  // Image forensic: balancear JPEG/cámara real (WhatsApp, móvil) vs generadores tipo Gemini/Grok.
   if (kind === 'image') {
     if (input.localEditLikely) score += 25;
     if (input.vectorGraphicLike) score += 20;
     if (input.textureSynthetic) score += 18;
     if (input.elaSynthetic && input.frequencySynthetic) score += 22;
 
-    // Signals from the “Grok/Flux” upgrades
     const nm = Number(input.noiseMean ?? 0);
     const nu = Number(input.noiseUniformity ?? 0);
     const ep = Number(input.edgePerfectionScore ?? 0);
     const es = Number(input.edgeSharpnessMean ?? 0);
     const rs = Number(input.renderSignatureScore ?? 0);
+    const eu = Number(input.elaUniformity ?? 0);
+    const tr = Number(input.textureRepeatScore ?? 0);
+    const fp = Number(input.freqPeakiness ?? 0);
+    const fr = Number(input.freqRadialVar ?? 0);
+    const li = Number(input.lightingInconsistencyScore ?? 0);
+    const localCv = Number(input.localElaCv ?? 0);
+    const localPeak = Number(input.localElaPeakRatio ?? 0);
 
-    if (nm > 0 && nm < 0.018 && nu > 0.72) score += 40;
-    if (ep > 0.74 && es > 0.55 && nm < 0.025) score += 20;
-    if (rs > 0.78 && nm < 0.022) score += 40;
+    const strongSynth =
+      Boolean(input.elaSynthetic && input.frequencySynthetic) ||
+      Boolean(input.textureSynthetic) ||
+      Boolean(input.vectorGraphicLike) ||
+      Boolean(input.localEditLikely) ||
+      Number(input.roiPerfectPts ?? 0) + Number(input.roiNoiseMismatchPts ?? 0) >= 40;
+
+    // Señal de pipeline de cámara / recompresión (ELA local variable, picos típicos de JPEG social).
+    const cameraPipelineLikely =
+      !strongSynth && (localCv > 0.34 || localPeak > 1.72 || (nm > 0.033 && nu < 0.52));
+
+    // --- Ruido “demasiado limpio” (más estricto; no castigar JPEG con grano real) ---
+    const tooClean =
+      !cameraPipelineLikely &&
+      ((nm > 0 && nm < 0.022 && nu > 0.52) || (nm > 0 && nm < 0.028 && nu > 0.62));
+    if (tooClean) score = Math.max(score, 76);
+
+    // --- Bordes: perfección alta sí penaliza; nitidez baja solo si hay otro apoyo (evita JPEG suave) ---
+    if (ep > 0.58) score += 34;
+    if (es > 0 && es < 0.2 && ep > 0.36) score += 32;
+    if (es > 0 && es > 0.78) score += 28;
+
+    // --- Firma render / textura: no confundir NR agresivo de cámara con IA ---
+    // JPEG viejo / móvil: alto rs + ELA local variable + poco ruido “uniforme” en el mapa nu.
+    const rsLooksLikeCameraNr =
+      !strongSynth &&
+      ((localCv > 0.48 && nm < 0.028) || (localCv > 0.51 && nm < 0.036 && rs > 0.55));
+
+    // Recompresión social con variación local alta y nu bajo (no mezclar con PNG Gemini nu similar pero fp distinto).
+    const jpegSocialRealHint = !strongSynth && localCv > 0.36 && nu < 0.35;
+    if (rs > 0.62 && !rsLooksLikeCameraNr) score += 36;
+    if (tr > 0.14) score += 32;
+
+    // --- ELA uniforme: umbral alto (JPEG social suele subir eu sin ser IA) ---
+    if (eu > 0.94 && localCv < 0.33) score = Math.max(score, 74);
+    else if (eu > 0.985 && !cameraPipelineLikely) score = Math.max(score, 78);
+
+    // --- Dominio frecuencia: escalar según si parece recompresión móvil vs pico “generador” ---
+    let freqAdd = 0;
+    if (input.frequencySynthetic) freqAdd += 20;
+    if (fp > 0.02 && fr > 0.6) freqAdd += 25;
+
+    let freqScale = 1;
+    if (!strongSynth) {
+      if (localCv > 0.54) freqScale *= 0.38;
+      else if (localCv > 0.35 && fp < 0.19) freqScale *= 0.48;
+      else if (nm > 0.036 && fp < 0.22) freqScale *= 0.55;
+      if (nm > 0.018 && nm < 0.03 && localCv > 0.27 && localCv < 0.42 && fp < 0.13) freqScale *= 0.62;
+    }
+    // JPEG de red social con “cara perfecta” pero fp medio: no aplastar tanto la rama frecuencia.
+    if (
+      !strongSynth &&
+      !jpegSocialRealHint &&
+      Boolean(input.frequencySynthetic) &&
+      li > 0.88 &&
+      fp >= 0.122 &&
+      fp <= 0.175 &&
+      nm < 0.044
+    ) {
+      freqScale = Math.max(freqScale, 1);
+    }
+    score += freqAdd * freqScale;
+
+    const oldJpegBlock = localCv > 0.47 && rs > 0.57 && nm < 0.034;
+    const waRealBlock =
+      nu < 0.33 &&
+      localCv > 0.38 &&
+      localCv < 0.52 &&
+      nm > 0.052 &&
+      nm < 0.085 &&
+      ep < 0.32 &&
+      fp > 0.38;
+    const mobileFlatElaBlock =
+      nu > 0.45 && fp > 0.32 && localCv < 0.33 && nm > 0.055 && nm < 0.1;
+
+    // Pico frecuencial alto + lighting (Grok/Gemini / JPEG IA); varias exclusiones para WhatsApp/móvil real.
+    const genLikeFreq =
+      Boolean(input.frequencySynthetic) &&
+      li > 0.8 &&
+      fp >= 0.172 &&
+      nm < 0.088 &&
+      (ep > 0.06 || (fp > 0.28 && ep > 0.032)) &&
+      !oldJpegBlock &&
+      !(localCv > 0.5 && rs > 0.68 && nm < 0.022) &&
+      !waRealBlock &&
+      !mobileFlatElaBlock;
+    if (genLikeFreq) {
+      score += 52;
+      if (nm > 0.085) score += 24;
+    }
+
+    // JPEG IA con pico fp muy alto y render “plano” (rs bajo); no solapa con fotos antiguas reales.
+    const jpegAiSharpPeak =
+      !strongSynth &&
+      Boolean(input.frequencySynthetic) &&
+      fp > 0.41 &&
+      fp < 0.53 &&
+      li > 0.88 &&
+      nm > 0.042 &&
+      nm < 0.072 &&
+      localCv > 0.35 &&
+      localCv < 0.48 &&
+      rs < 0.22 &&
+      !oldJpegBlock;
+    if (jpegAiSharpPeak) score += 50;
+
+    // Variante: pico fp aún más alto (JPEG IA comprimido) con bordes casi nulos en ep.
+    const jpegAiHighFpPeak =
+      !strongSynth &&
+      Boolean(input.frequencySynthetic) &&
+      fp > 0.51 &&
+      fp < 0.58 &&
+      li > 0.9 &&
+      nm > 0.045 &&
+      nm < 0.056 &&
+      localCv > 0.38 &&
+      localCv < 0.47 &&
+      ep < 0.035 &&
+      rs < 0.32 &&
+      !oldJpegBlock;
+    if (jpegAiHighFpPeak) score += 52;
+
+    // PNG Gemini con grano visible (nm alto): nm<0.088 del bloque anterior lo excluye; rama aparte.
+    const pngGeminiGrain =
+      Boolean(input.frequencySynthetic) &&
+      li > 0.85 &&
+      fp >= 0.166 &&
+      fp <= 0.23 &&
+      nm >= 0.062 &&
+      nm <= 0.14 &&
+      es > 0.35 &&
+      ep > 0.055 &&
+      ep < 0.22;
+    if (pngGeminiGrain) score += 76;
+
+    // fp medio + nm bajo + lighting alto (muchos fakes JPEG de red; no tanto móvil con mucho ruido).
+    const genLikeMid =
+      Boolean(input.frequencySynthetic) &&
+      li > 0.86 &&
+      fp >= 0.122 &&
+      fp <= 0.172 &&
+      nm < 0.046 &&
+      !strongSynth &&
+      !jpegSocialRealHint;
+    if (genLikeMid) score += 50;
+
+    // Bordes “demasiado limpios” en rango típico generador + dominio frecuencia marcado.
+    const edgeGenLike =
+      Boolean(input.frequencySynthetic) &&
+      li > 0.83 &&
+      ep > 0.38 &&
+      ep < 0.52 &&
+      nm < 0.072 &&
+      fp < 0.22;
+    if (edgeGenLike) score += 50;
+    if (edgeGenLike && li > 0.875 && fp > 0.135 && fp < 0.205) score += 22;
+
+    // PNG/export con bordes muy regulares y poca variación de textura (nu bajo).
+    const pngCleanEdges = Boolean(input.frequencySynthetic) && ep > 0.45 && li > 0.85 && nu < 0.22;
+    if (pngCleanEdges) score += 52;
+
+    const studioExportLikely =
+      Boolean(input.frequencySynthetic) &&
+      ep > 0.48 &&
+      ep < 0.58 &&
+      li > 0.88 &&
+      nu < 0.21 &&
+      rs < 0.52 &&
+      fp < 0.12;
+    if (studioExportLikely) score += 22;
   }
 
   return {

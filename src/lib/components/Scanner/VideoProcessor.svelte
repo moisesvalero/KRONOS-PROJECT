@@ -164,10 +164,101 @@
       reason: scan.reason,
       warnings: scan.warnings ?? [],
       completedAt: scan.completedAt ?? null,
-      ensembleVotes: Array.isArray((scan as any).ensembleVotes) ? (scan as any).ensembleVotes : []
+      ensembleVotes: Array.isArray((scan as any).ensembleVotes) ? (scan as any).ensembleVotes : [],
+      features:
+        mediaKind === 'image'
+          ? {
+              forensic: {
+                elaMean: Number(imageElaMean ?? 0),
+                elaUniformity: Number(imageElaUniformity ?? 0),
+                textureRepeatScore: Number(imageTextureRepeatScore ?? 0),
+                freqPeakiness: Number(imageFreqPeakiness ?? 0),
+                freqRadialVar: Number(imageFreqRadialVar ?? 0),
+                edgeSharpnessMean: Number(imageEdgeSharpness ?? 0),
+                noiseMean: Number(imageNoiseMean ?? 0),
+                noiseUniformity: Number(imageNoiseUniformity ?? 0),
+                lightingInconsistencyScore: Number(imageLightingInconsistency ?? 0),
+                edgePerfectionScore: Number(imageEdgePerfection ?? 0),
+                renderSignatureScore: Number(imageRenderSignature ?? 0),
+                roiFaceScore: Number(imageRoiFaceScore ?? 0),
+                roiPerfectPts: Number(imageRoiPerfectPts ?? 0),
+                roiNoiseMismatchPts: Number(imageRoiNoiseMismatchPts ?? 0),
+                localElaCv: Number(imageLocalElaCv ?? 0),
+                localElaPeakRatio: Number(imageLocalElaPeakRatio ?? 0),
+                localEditLikely: Boolean(imageLocalEditLikely),
+                vectorGraphicLike: Boolean(imageVectorGraphicLike),
+                elaSynthetic: Boolean(imageElaSynthetic),
+                frequencySynthetic: Boolean(imageFrequencySynthetic),
+                textureSynthetic: Boolean(imageTextureSynthetic),
+                edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic)
+              }
+            }
+          : null
     };
 
     downloadJsonFile(`${selectedFile.name}.kronos.json`, payload);
+  }
+
+  function __kronosGetExportPayload() {
+    if (!selectedFile) return null;
+    if (scan.phase !== 'COMPLETED') return null;
+    // Reuse the exact same payload shape as the export button.
+    const payload = {
+      schema: 'kronos.analysis.v1',
+      generatedAt: new Date().toISOString(),
+      file: {
+        name: selectedFile.name,
+        sizeBytes: selectedFile.size,
+        kind: mediaKind ?? 'unknown',
+        mime: selectedFile.type || null
+      },
+      verdict: scan.verdict,
+      confidence: scan.confidence,
+      riskScore: scan.riskScore,
+      reason: scan.reason,
+      warnings: scan.warnings ?? [],
+      completedAt: scan.completedAt ?? null,
+      ensembleVotes: Array.isArray((scan as any).ensembleVotes) ? (scan as any).ensembleVotes : [],
+      features:
+        mediaKind === 'image'
+          ? {
+              forensic: {
+                elaMean: Number(imageElaMean ?? 0),
+                elaUniformity: Number(imageElaUniformity ?? 0),
+                textureRepeatScore: Number(imageTextureRepeatScore ?? 0),
+                freqPeakiness: Number(imageFreqPeakiness ?? 0),
+                freqRadialVar: Number(imageFreqRadialVar ?? 0),
+                edgeSharpnessMean: Number(imageEdgeSharpness ?? 0),
+                noiseMean: Number(imageNoiseMean ?? 0),
+                noiseUniformity: Number(imageNoiseUniformity ?? 0),
+                lightingInconsistencyScore: Number(imageLightingInconsistency ?? 0),
+                edgePerfectionScore: Number(imageEdgePerfection ?? 0),
+                renderSignatureScore: Number(imageRenderSignature ?? 0),
+                roiFaceScore: Number(imageRoiFaceScore ?? 0),
+                roiPerfectPts: Number(imageRoiPerfectPts ?? 0),
+                roiNoiseMismatchPts: Number(imageRoiNoiseMismatchPts ?? 0),
+                localElaCv: Number(imageLocalElaCv ?? 0),
+                localElaPeakRatio: Number(imageLocalElaPeakRatio ?? 0),
+                localEditLikely: Boolean(imageLocalEditLikely),
+                vectorGraphicLike: Boolean(imageVectorGraphicLike),
+                elaSynthetic: Boolean(imageElaSynthetic),
+                frequencySynthetic: Boolean(imageFrequencySynthetic),
+                textureSynthetic: Boolean(imageTextureSynthetic),
+                edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic)
+              }
+            }
+          : null
+    };
+    return payload;
+  }
+
+  $effect(() => {
+    if (typeof window === 'undefined') return;
+    (window as any).__kronosGetExportPayload = __kronosGetExportPayload;
+  });
+
+  function isAutomationRun() {
+    return typeof window !== 'undefined' && Boolean((window as any).__kronosAutomation);
   }
 
   let animatedLogIndex = $derived(
@@ -248,6 +339,17 @@
   let imageLightingInconsistency = $state(0);
   let imageEdgePerfection = $state(0);
   let imageRenderSignature = $state(0);
+  let imageRoiFaceScore = $state(0);
+  let imageRoiPerfectPts = $state(0);
+  let imageRoiNoiseMismatchPts = $state(0);
+  let imageLocalElaCv = $state(0);
+  let imageLocalElaPeakRatio = $state(0);
+  let imageLocalEditLikely = $state(false);
+  let imageVectorGraphicLike = $state(false);
+  let imageElaSynthetic = $state(false);
+  let imageFrequencySynthetic = $state(false);
+  let imageTextureSynthetic = $state(false);
+  let imageEdgesSmoothedSynthetic = $state(false);
 
   // Métricas para PDF (texto)
   let textConnectorScore = $state(0);
@@ -2628,6 +2730,17 @@
     imageLightingInconsistency = 0;
     imageEdgePerfection = 0;
     imageRenderSignature = 0;
+    imageRoiFaceScore = 0;
+    imageRoiPerfectPts = 0;
+    imageRoiNoiseMismatchPts = 0;
+    imageLocalElaCv = 0;
+    imageLocalElaPeakRatio = 0;
+    imageLocalEditLikely = false;
+    imageVectorGraphicLike = false;
+    imageElaSynthetic = false;
+    imageFrequencySynthetic = false;
+    imageTextureSynthetic = false;
+    imageEdgesSmoothedSynthetic = false;
     imageNoiseMean = 0;
     imageNoiseUniformity = 0;
     imageLightingInconsistency = 0;
@@ -2708,7 +2821,7 @@
         ]
       });
       await new Promise((r) => setTimeout(r, 180));
-      showReport = true;
+      if (!isAutomationRun()) showReport = true;
     } catch (err) {
       const hardAlert = file.size > MAX_SCAN_SIZE_BYTES || /fake/i.test(file.name);
       const verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = hardAlert ? 'ALERTA ROJA' : 'SOSPECHOSO';
@@ -2724,7 +2837,7 @@
         logsExtra: [`VIDEO_TEXT_IMAGE_ERROR: ${String((err as any)?.message ?? err)}`]
       });
       await new Promise((r) => setTimeout(r, 180));
-      showReport = true;
+      if (!isAutomationRun()) showReport = true;
     } finally {
       isBusy = false;
     }
@@ -2914,7 +3027,7 @@
             ]
           });
           await new Promise((r) => setTimeout(r, 180));
-          showReport = true;
+          if (!isAutomationRun()) showReport = true;
         } catch (err) {
           const verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = hardAlert ? 'ALERTA ROJA' : 'SOSPECHOSO';
           await ensureMinimumPremiumTime(premiumStart, 15000, 30, 92);
@@ -2927,7 +3040,7 @@
             logsExtra: [`AUDIO_ANALYSIS_ERROR: ${String((err as any)?.message ?? err)}`]
           });
           await new Promise((r) => setTimeout(r, 180));
-          showReport = true;
+          if (!isAutomationRun()) showReport = true;
         }
       } else if (mediaKind === 'video') {
         try {
@@ -3015,7 +3128,7 @@
             ]
           });
           await new Promise((r) => setTimeout(r, 180));
-          showReport = true;
+          if (!isAutomationRun()) showReport = true;
         } catch (err) {
           const verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = hardAlert ? 'ALERTA ROJA' : 'SOSPECHOSO';
           const reason = hardAlert
@@ -3033,7 +3146,7 @@
             logsExtra: [`VIDEO_ANALYSIS_ERROR: ${String((err as any)?.message ?? err)}`]
           });
           await new Promise((r) => setTimeout(r, 180));
-          showReport = true;
+          if (!isAutomationRun()) showReport = true;
         }
       } else {
         // UX: en imágenes, garantizamos una fase mínima visible (evita "informe instantáneo").
@@ -3056,6 +3169,17 @@
         imageLightingInconsistency = Number((imgResult as any).lightingInconsistencyScore ?? 0);
         imageEdgePerfection = Number((imgResult as any).edgePerfectionScore ?? 0);
         imageRenderSignature = Number((imgResult as any).renderSignatureScore ?? 0);
+        imageRoiFaceScore = Number((imgResult as any).roiFaceScore ?? 0);
+        imageRoiPerfectPts = Number((imgResult as any).roiPerfectPts ?? 0);
+        imageRoiNoiseMismatchPts = Number((imgResult as any).roiNoiseMismatchPts ?? 0);
+        imageLocalElaCv = Number((imgResult as any).localElaCv ?? 0);
+        imageLocalElaPeakRatio = Number((imgResult as any).localElaPeakRatio ?? 0);
+        imageLocalEditLikely = Boolean((imgResult as any).localEditLikely);
+        imageVectorGraphicLike = Boolean((imgResult as any).vectorGraphicLike);
+        imageElaSynthetic = Boolean(imgResult.elaSynthetic);
+        imageFrequencySynthetic = Boolean(imgResult.frequencySynthetic);
+        imageTextureSynthetic = Boolean(imgResult.textureSynthetic);
+        imageEdgesSmoothedSynthetic = Boolean(imgResult.edgesSmoothedSynthetic);
 
         let verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = 'VERIFICADO';
         let imageEnsVotes: any[] = [];
@@ -3070,8 +3194,12 @@
               roiNoiseMismatchPts:
                 Number((imgResult as any).roiFaceScore ?? 0) >= 0.9 ? Number((imgResult as any).roiNoiseMismatchPts ?? 0) : 0,
               elaSynthetic: Boolean(imgResult.elaSynthetic),
+              elaUniformity: Number((imgResult as any).elaUniformity ?? 0),
               frequencySynthetic: Boolean(imgResult.frequencySynthetic),
+              freqPeakiness: Number((imgResult as any).freqPeakiness ?? 0),
+              freqRadialVar: Number((imgResult as any).freqRadialVar ?? 0),
               textureSynthetic: Boolean(imgResult.textureSynthetic),
+              textureRepeatScore: Number((imgResult as any).textureRepeatScore ?? 0),
               edgesSmoothedSynthetic: Boolean(imgResult.edgesSmoothedSynthetic),
               localEditLikely: Boolean((imgResult as any).localEditLikely),
               vectorGraphicLike: Boolean((imgResult as any).vectorGraphicLike),
@@ -3079,7 +3207,10 @@
               noiseUniformity: Number((imgResult as any).noiseUniformity ?? 0),
               edgePerfectionScore: Number((imgResult as any).edgePerfectionScore ?? 0),
               edgeSharpnessMean: Number((imgResult as any).edgeSharpnessMean ?? 0),
-              renderSignatureScore: Number((imgResult as any).renderSignatureScore ?? 0)
+              renderSignatureScore: Number((imgResult as any).renderSignatureScore ?? 0),
+              lightingInconsistencyScore: Number((imgResult as any).lightingInconsistencyScore ?? 0),
+              localElaCv: Number((imgResult as any).localElaCv ?? 0),
+              localElaPeakRatio: Number((imgResult as any).localElaPeakRatio ?? 0)
             },
             metadata: {
               thirdParty: Boolean(mi?.thirdParty),
@@ -3158,7 +3289,9 @@
           verdict === 'ALERTA ROJA'
             ? file.size > MAX_SCAN_SIZE_BYTES
               ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
-              : "Patron nominal sospechoso detectado en el nombre del archivo ('fake')."
+              : /fake/i.test(file.name)
+                ? "Patron nominal sospechoso detectado en el nombre del archivo ('fake')."
+                : 'Riesgo de integridad visual elevado (ensemble forense). Se recomienda verificación adicional.'
             : verdict === 'SOSPECHOSO'
               ? imgResult.elaSynthetic || imgResult.frequencySynthetic
                 ? 'Se detectaron señales de síntesis compatibles: ELA y/o periodicidad en dominio frecuencia.'
@@ -3208,7 +3341,7 @@
           ]
         });
         await new Promise((r) => setTimeout(r, 180));
-        showReport = true;
+        if (!isAutomationRun()) showReport = true;
       }
 
       // `showReport` se gestiona dentro de cada rama para respetar el final visual de progreso.
@@ -3478,15 +3611,18 @@
         class:warn={scan.verdict === 'SOSPECHOSO'}
         class:danger={scan.verdict === 'ALERTA ROJA'}
         class:safe={scan.verdict === 'VERIFICADO'}
+        data-testid="kronos-badge"
       >
         {badgeLabel}
       </span>
+      <span class="sr-only" data-testid="kronos-phase">{scan.phase}</span>
     </header>
 
     <nav class="tabs" aria-label="Tabs de análisis">
       <button
         type="button"
         class:active={activeTab === 'video'}
+        data-testid="kronos-tab-video"
         on:click={() => {
           if (isBusy) return;
           activeTab = 'video';
@@ -3498,6 +3634,7 @@
       <button
         type="button"
         class:active={activeTab === 'image'}
+        data-testid="kronos-tab-image"
         on:click={() => {
           if (isBusy) return;
           activeTab = 'image';
@@ -3509,6 +3646,7 @@
       <button
         type="button"
         class:active={activeTab === 'audio'}
+        data-testid="kronos-tab-audio"
         on:click={() => {
           if (isBusy) return;
           activeTab = 'audio';
@@ -3520,6 +3658,7 @@
       <button
         type="button"
         class:active={activeTab === 'text'}
+        data-testid="kronos-tab-text"
         on:click={() => {
           if (isBusy) return;
           activeTab = 'text';
@@ -3531,6 +3670,7 @@
       <button
         type="button"
         class:active={activeTab === 'link'}
+        data-testid="kronos-tab-link"
         on:click={() => {
           if (isBusy) return;
           activeTab = 'link';
@@ -3557,6 +3697,7 @@
           type="file"
           accept={activeTab === 'video' ? 'video/*' : activeTab === 'image' ? 'image/*' : 'audio/*,video/*'}
           on:change={onFileInput}
+          data-testid="kronos-file-input"
         />
         <label for="video-input">
           <strong
@@ -3883,6 +4024,18 @@
   .status.danger {
     border-color: rgba(230, 57, 70, 0.42);
     color: #e63946;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
   }
 
   .dropzone {
