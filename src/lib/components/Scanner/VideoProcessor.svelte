@@ -10,6 +10,13 @@
   import ReportModal from '$lib/components/ui/ReportModal.svelte';
   import { t } from '$lib/i18n/index.js';
   import { EnsembleManager, formatEnsembleVotes } from '$lib/ensemble/EnsembleManager';
+  import { scanMp4Container, analyzeRppgGreenSeries, meanGreenCheekRoi } from '$lib/forensics/AdvancedForensicSuite';
+  import { analyzePrnuResidualProxy } from '$lib/forensics/prnuResidualProxy';
+  import { analyzeDctDoubleQuantization } from '$lib/forensics/dctDoubleQuantProxy';
+
+  /** Nombre de archivo que el usuario puede usar para marcar contenido dudoso (también dispara ALERTA dura). */
+  const NOMINAL_MANIPULATION_FILE_RE =
+    /fake|deep\s*fake|deepfake|manipul|editad|montaje|faceswap|face\s*swap|sint[eé]tic|generad[oa]|\bfalso\b/i;
   import {
     ANALYSIS_DURATION_MS,
     MAX_SCAN_SIZE_BYTES,
@@ -34,9 +41,13 @@
   let audioSummary = $state('');
   /** Último análisis de vídeo serializable (replay / benchmark / captura). */
   let videoExportFeatures = $state<{
-    forensic: Record<string, number | boolean>;
+    forensic: Record<string, unknown>;
     biometric: Record<string, number | boolean>;
+    advanced?: Record<string, unknown>;
   } | null>(null);
+
+  /** PRNU/DCT en imagen (export JSON / Playwright). */
+  let imageLowLevelForensic = $state<Record<string, unknown> | null>(null);
   let textInput = $state('');
   let textPreview = $state('');
   let linkInput = $state('');
@@ -120,23 +131,37 @@
 
   const ensemble = new EnsembleManager();
 
-  function buildVideoFeaturesForExport(frameResult: {
-    roiPerfectPts?: number;
-    roiNoiseMismatchPts?: number;
-    roiNoiseFace?: number;
-    roiNoiseBg?: number;
-    roiEdgeFace?: number;
-    roiEdgeBg?: number;
-    blinkWarning?: boolean;
-    suspiciousJitter?: boolean;
-    suspiciousLowConfidence?: boolean;
-    maskJitterWarning?: boolean;
-    reliableFaceFrames?: number;
-    minScore?: number;
-    maxJitter?: number;
-    blinkCount?: number;
-    maskJitterMaxScore?: number;
-  }) {
+  function buildVideoFeaturesForExport(
+    frameResult: {
+      roiPerfectPts?: number;
+      roiNoiseMismatchPts?: number;
+      roiNoiseFace?: number;
+      roiNoiseBg?: number;
+      roiEdgeFace?: number;
+      roiEdgeBg?: number;
+      blinkWarning?: boolean;
+      suspiciousJitter?: boolean;
+      suspiciousLowConfidence?: boolean;
+      maskJitterWarning?: boolean;
+      reliableFaceFrames?: number;
+      minScore?: number;
+      maxJitter?: number;
+      blinkCount?: number;
+      maskJitterMaxScore?: number;
+    },
+    exportExtras?: {
+      rppgPrecomputed?: import('$lib/forensics/rppgSignal').RppgAnalysisResult | null;
+      containerPrecomputed?: import('$lib/forensics/mp4BoxForensics').Mp4ForensicResult | null;
+      lowLevelForensic?: {
+        prnuResidualRisk0to100: number;
+        prnuResidualMetrics: unknown;
+        prnuResidualNotes: string[];
+        dctDoubleQuantRisk0to100: number;
+        dctDoubleQuantMetrics: unknown;
+        dctDoubleQuantNotes: string[];
+      } | null;
+    }
+  ) {
     const rf = Number(frameResult.reliableFaceFrames ?? 0);
     const bc = Number(frameResult.blinkCount ?? 0);
     const minC = Number(frameResult.minScore ?? 0);
@@ -148,16 +173,26 @@
       minC >= 0.9 &&
       maxJ <= 0.021 &&
       !frameResult.suspiciousLowConfidence;
-    return {
-      forensic: {
-        roiPerfectPts: Number(frameResult.roiPerfectPts ?? 0),
-        roiNoiseMismatchPts: Number(frameResult.roiNoiseMismatchPts ?? 0),
-        roiNoiseFace: Number(frameResult.roiNoiseFace ?? 0),
-        roiNoiseBg: Number(frameResult.roiNoiseBg ?? 0),
-        roiEdgeFace: Number(frameResult.roiEdgeFace ?? 0),
-        roiEdgeBg: Number(frameResult.roiEdgeBg ?? 0),
-        videoPortraitSyntheticHint: portraitHint
-      },
+    const forensic: Record<string, unknown> = {
+      roiPerfectPts: Number(frameResult.roiPerfectPts ?? 0),
+      roiNoiseMismatchPts: Number(frameResult.roiNoiseMismatchPts ?? 0),
+      roiNoiseFace: Number(frameResult.roiNoiseFace ?? 0),
+      roiNoiseBg: Number(frameResult.roiNoiseBg ?? 0),
+      roiEdgeFace: Number(frameResult.roiEdgeFace ?? 0),
+      roiEdgeBg: Number(frameResult.roiEdgeBg ?? 0),
+      videoPortraitSyntheticHint: portraitHint
+    };
+    const L = exportExtras?.lowLevelForensic;
+    if (L) {
+      forensic.prnuResidualRisk0to100 = L.prnuResidualRisk0to100;
+      forensic.prnuResidualMetrics = L.prnuResidualMetrics;
+      forensic.prnuResidualNotes = L.prnuResidualNotes;
+      forensic.dctDoubleQuantRisk0to100 = L.dctDoubleQuantRisk0to100;
+      forensic.dctDoubleQuantMetrics = L.dctDoubleQuantMetrics;
+      forensic.dctDoubleQuantNotes = L.dctDoubleQuantNotes;
+    }
+    const base = {
+      forensic,
       biometric: {
         blinkWarning: Boolean(frameResult.blinkWarning),
         suspiciousJitter: Boolean(frameResult.suspiciousJitter),
@@ -170,6 +205,14 @@
         maskJitterMaxScore: Number(frameResult.maskJitterMaxScore ?? 0)
       }
     };
+    if (!exportExtras) return base;
+    const adv: Record<string, unknown> = {};
+    if (exportExtras.rppgPrecomputed)
+      adv.rppg = { precomputed: exportExtras.rppgPrecomputed };
+    if (exportExtras.containerPrecomputed)
+      adv.container = { precomputed: exportExtras.containerPrecomputed };
+    if (Object.keys(adv).length) return { ...base, advanced: adv };
+    return base;
   }
 
   function toEnsembleVotesExport(votes: unknown) {
@@ -247,7 +290,8 @@
                 elaSynthetic: Boolean(imageElaSynthetic),
                 frequencySynthetic: Boolean(imageFrequencySynthetic),
                 textureSynthetic: Boolean(imageTextureSynthetic),
-                edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic)
+                edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic),
+                ...(imageLowLevelForensic ?? {})
               }
             }
           : mediaKind === 'video' && videoExportFeatures
@@ -303,7 +347,8 @@
                 elaSynthetic: Boolean(imageElaSynthetic),
                 frequencySynthetic: Boolean(imageFrequencySynthetic),
                 textureSynthetic: Boolean(imageTextureSynthetic),
-                edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic)
+                edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic),
+                ...(imageLowLevelForensic ?? {})
               }
             }
           : mediaKind === 'video' && videoExportFeatures
@@ -1440,6 +1485,14 @@
     // Todo es client-side y se mantiene liviano limitando el tamaño.
     const maxAnalysisDim = 440;
     const thresholdElaHigh = 20; // diff típico (0..255)
+    const emptyLowLevel = {
+      prnuResidualRisk0to100: 0,
+      prnuResidualMetrics: { excessKurtosis: 0, lag1CorrAbs: 0, blockVarianceCv: 0, residualStd: 0 },
+      prnuResidualNotes: [] as string[],
+      dctDoubleQuantRisk0to100: 0,
+      dctDoubleQuantMetrics: { acHistPeakRatio: 0, acHistAutocorrMax: 0, blocksSampled: 0 },
+      dctDoubleQuantNotes: [] as string[]
+    };
 
     const objUrl = URL.createObjectURL(file);
     try {
@@ -1450,7 +1503,8 @@
           elaUniformity: 0,
           elaSynthetic: false,
           textureRepeatScore: 0,
-          textureSynthetic: false
+          textureSynthetic: false,
+          ...emptyLowLevel
         };
       }
 
@@ -1470,7 +1524,8 @@
           elaUniformity: 0,
           elaSynthetic: false,
           textureRepeatScore: 0,
-          textureSynthetic: false
+          textureSynthetic: false,
+          ...emptyLowLevel
         };
       }
 
@@ -1492,7 +1547,8 @@
           elaUniformity: 0,
           elaSynthetic: false,
           textureRepeatScore: 0,
-          textureSynthetic: false
+          textureSynthetic: false,
+          ...emptyLowLevel
         };
       }
       workCtx.drawImage(img, 0, 0, w, h);
@@ -1517,7 +1573,8 @@
           elaUniformity: 0,
           elaSynthetic: false,
           textureRepeatScore: 0,
-          textureSynthetic: false
+          textureSynthetic: false,
+          ...emptyLowLevel
         };
       }
       ctx2.drawImage(reImg, 0, 0, w, h);
@@ -2014,6 +2071,9 @@
         vectorGraphicLike = false;
       }
 
+      const prnuRes = analyzePrnuResidualProxy(grayA, w, h);
+      const dctRes = analyzeDctDoubleQuantization(grayA, w, h);
+
       return {
         elaMean: elaMeanRaw / 255,
         elaStd: stdDev / 255,
@@ -2042,11 +2102,54 @@
         roiNoiseFace,
         roiNoiseBg,
         roiEdgeFace,
-        roiEdgeBg
+        roiEdgeBg,
+        prnuResidualRisk0to100: prnuRes.risk0to100,
+        prnuResidualMetrics: prnuRes.metrics,
+        prnuResidualNotes: prnuRes.notes,
+        dctDoubleQuantRisk0to100: dctRes.risk0to100,
+        dctDoubleQuantMetrics: dctRes.metrics,
+        dctDoubleQuantNotes: dctRes.notes
       };
     } finally {
       URL.revokeObjectURL(objUrl);
     }
+  }
+
+  function sampleVideoLowLevelForensic(video: HTMLVideoElement | null) {
+    if (!video || typeof document === 'undefined') return null;
+    const nw = video.videoWidth;
+    const nh = video.videoHeight;
+    if (!nw || !nh) return null;
+    const maxDim = 440;
+    const scale = Math.min(1, maxDim / Math.max(nw, nh));
+    const w = Math.max(96, Math.floor(nw * scale));
+    const h = Math.max(96, Math.floor(nh * scale));
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    try {
+      ctx.drawImage(video, 0, 0, w, h);
+    } catch {
+      return null;
+    }
+    const img = ctx.getImageData(0, 0, w, h);
+    const grayA = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) {
+      const j = i * 4;
+      grayA[i] = (0.299 * img.data[j] + 0.587 * img.data[j + 1] + 0.114 * img.data[j + 2]) / 255;
+    }
+    const prnuRes = analyzePrnuResidualProxy(grayA, w, h);
+    const dctRes = analyzeDctDoubleQuantization(grayA, w, h);
+    return {
+      prnuResidualRisk0to100: prnuRes.risk0to100,
+      prnuResidualMetrics: prnuRes.metrics,
+      prnuResidualNotes: prnuRes.notes,
+      dctDoubleQuantRisk0to100: dctRes.risk0to100,
+      dctDoubleQuantMetrics: dctRes.metrics,
+      dctDoubleQuantNotes: dctRes.notes
+    };
   }
 
   function normalizeTextForConnectors(input: string) {
@@ -2435,7 +2538,9 @@
         blinkWarning: false,
         blinkCount: 0,
         maskJitterWarning: false,
-        maskJitterMaxScore: 0
+        maskJitterMaxScore: 0,
+        rppgGreenSamples: [] as number[],
+        rppgSampleRateHz: 0
       };
 
     // Ajustes de rendimiento:
@@ -2511,6 +2616,40 @@
       suspiciousLowConfidence = true;
     }
 
+    const rppgSampleMs = 70;
+    const rppgGreenSamples: number[] = [];
+    const rppgGate: {
+      ok: boolean;
+      box: { x: number; y: number; width: number; height: number } | null;
+    } = { ok: false, box: null };
+    let rppgTimer: ReturnType<typeof setInterval> | null = null;
+    const rppgCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+    const rppgCtx2d = rppgCanvas?.getContext?.('2d', { willReadFrequently: true }) ?? null;
+    if (rppgCanvas && rppgCtx2d && videoRef) {
+      rppgTimer = setInterval(() => {
+        try {
+          if (!rppgGate.ok || !rppgGate.box || !videoRef) return;
+          const vw = videoRef.videoWidth;
+          const vh = videoRef.videoHeight;
+          if (!vw || !vh) return;
+          const tw = 160;
+          const th = Math.max(90, Math.round((vh / vw) * tw));
+          rppgCanvas.width = tw;
+          rppgCanvas.height = th;
+          rppgCtx2d.drawImage(videoRef, 0, 0, tw, th);
+          const sx = tw / vw;
+          const sy = th / vh;
+          const b = rppgGate.box;
+          const mapped = { x: b.x * sx, y: b.y * sy, width: b.width * sx, height: b.height * sy };
+          const img = rppgCtx2d.getImageData(0, 0, tw, th);
+          rppgGreenSamples.push(meanGreenCheekRoi(img, mapped));
+        } catch {
+          /* ignore */
+        }
+      }, rppgSampleMs);
+    }
+
+    try {
     while (analyzedMs < windowMs && performance.now() - start < maxWallMs) {
       const now = performance.now();
       const dt = Math.max(0, Math.min(400, now - lastStepTs));
@@ -2528,6 +2667,7 @@
       detectCount += 1;
 
       if (!result) {
+        rppgGate.ok = false;
         suspiciousLowConfidence = true;
         minScore = Math.min(minScore, 0);
         lastFrameScore = 0;
@@ -2548,8 +2688,15 @@
 
         // Fiabilidad de cara (anti-falsos positivos en vídeos sin cara humana clara).
         const vw = videoRef.videoWidth || 0;
+        const vh = videoRef.videoHeight || 0;
         const faceLargeEnough = vw ? box.width >= vw * 0.12 : box.width >= 90;
         const reliableFace = score >= 0.9 && faceLargeEnough;
+        if (reliableFace && vw && vh) {
+          rppgGate.ok = true;
+          rppgGate.box = { x: box.x, y: box.y, width: box.width, height: box.height };
+        } else {
+          rppgGate.ok = false;
+        }
         if (reliableFace) {
           reliableFaceFrames += 1;
           lastReliableFaceMs = analyzedMs;
@@ -2561,7 +2708,6 @@
 
         // ROI contraste de textura (cara vs fondo). Seguridad: solo si face-api está >= 90%.
         if (reliableFace && detectCount % 3 === 0) {
-          const vh = videoRef.videoHeight || 0;
           if (vw && vh) {
             const tmpCanvas =
               roiTmpCanvas ?? (typeof document !== 'undefined' ? document.createElement('canvas') : null);
@@ -2660,6 +2806,9 @@
 
       await new Promise<void>((resolve) => setTimeout(resolve, sampleDelayMs));
     }
+    } finally {
+      if (rppgTimer) clearInterval(rppgTimer);
+    }
 
     try {
       videoRef.pause();
@@ -2685,6 +2834,7 @@
       }
     }
 
+    const rppgSampleRateHz = 1000 / rppgSampleMs;
     return {
       suspicious: suspiciousLowConfidence || suspiciousJitter,
       suspiciousLowConfidence,
@@ -2701,7 +2851,9 @@
       roiNoiseBg,
       roiEdgeFace,
       roiEdgeBg,
-      reliableFaceFrames
+      reliableFaceFrames,
+      rppgGreenSamples,
+      rppgSampleRateHz
     };
   }
 
@@ -2884,7 +3036,7 @@
       await new Promise((r) => setTimeout(r, 180));
       if (!isAutomationRun()) showReport = true;
     } catch (err) {
-      const hardAlert = file.size > MAX_SCAN_SIZE_BYTES || /fake/i.test(file.name);
+      const hardAlert = file.size > MAX_SCAN_SIZE_BYTES || NOMINAL_MANIPULATION_FILE_RE.test(file.name);
       const verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = hardAlert ? 'ALERTA ROJA' : 'SOSPECHOSO';
 
       const premiumStartFail = performance.now();
@@ -2929,6 +3081,7 @@
     showReport = false;
     resetScanner();
     videoExportFeatures = null;
+    imageLowLevelForensic = null;
     fileHashHex = '';
     elaOverlayCanvas = null;
     audioSummary = '';
@@ -2995,7 +3148,7 @@
         warnings.push(`Metadatos de Cámara Incompletos: ${missingMobile.join(', ')}`);
       }
 
-      const hardAlert = file.size > MAX_SCAN_SIZE_BYTES || /fake/i.test(file.name);
+      const hardAlert = file.size > MAX_SCAN_SIZE_BYTES || NOMINAL_MANIPULATION_FILE_RE.test(file.name);
       // Se detiene el "heartbeat" cuando entramos en la fase de análisis real.
       stopTelemetryHeartbeat();
 
@@ -3022,7 +3175,7 @@
           if (res.ttsLike) warningsAudio.push('Naturalidad acústica atípica (posible TTS)');
           if ((res as any).digitalSilenceGaps >= 2) warningsAudio.push('Silencio digital absoluto entre segmentos (proxy)');
 
-          const hardAlert = file.size > MAX_SCAN_SIZE_BYTES || /fake/i.test(file.name);
+          const hardAlert = file.size > MAX_SCAN_SIZE_BYTES || NOMINAL_MANIPULATION_FILE_RE.test(file.name);
           let acousticScore = 0;
           if ((res as any).digitalSilenceGaps >= 2) acousticScore += 40;
           if (res.sampleRate >= 44100 && res.bandlimitScore > 0.78) acousticScore += 30;
@@ -3062,7 +3215,7 @@
             verdict === 'ALERTA ROJA'
               ? file.size > MAX_SCAN_SIZE_BYTES
                 ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
-                : "Patron nominal sospechoso detectado en el nombre del archivo ('fake')."
+                : 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
               : verdict === 'SOSPECHOSO'
                 ? audioSummary
                 : 'Integridad de audio estable. No se detectaron señales fuertes de manipulación.';
@@ -3107,9 +3260,36 @@
       } else if (mediaKind === 'video') {
         try {
           await withTimeout(ensureModelsLoaded(), 20000, 'FACE_MODELS');
+
+          let containerPrecomputed: import('$lib/forensics/mp4BoxForensics').Mp4ForensicResult | null = null;
+          const isMp4Container =
+            /\.mp4$/i.test(file.name) ||
+            (file.type || '').toLowerCase().includes('mp4') ||
+            (file.type || '').toLowerCase().includes('quicktime');
+          if (isMp4Container) {
+            try {
+              const head = await file.slice(0, Math.min(file.size, 2 * 1024 * 1024)).arrayBuffer();
+              containerPrecomputed = scanMp4Container(head);
+            } catch {
+              containerPrecomputed = null;
+            }
+          }
+
           const frameResult = await withTimeout(analyzeFramesReal(), 70000, 'VIDEO_ANALYSIS');
 
-          videoExportFeatures = buildVideoFeaturesForExport(frameResult);
+          const rppgRate = Number((frameResult as any).rppgSampleRateHz ?? 1000 / 70);
+          const rppgAnalysis = analyzeRppgGreenSeries(
+            (frameResult as any).rppgGreenSamples ?? [],
+            rppgRate
+          );
+
+          const videoLowLevel = sampleVideoLowLevelForensic(videoRef);
+
+          videoExportFeatures = buildVideoFeaturesForExport(frameResult, {
+            rppgPrecomputed: rppgAnalysis,
+            containerPrecomputed,
+            lowLevelForensic: videoLowLevel
+          });
 
           const ens = ensemble.evaluate({
             kind: 'video',
@@ -3122,7 +3302,9 @@
               roiEdgeBg: Number((frameResult as any).roiEdgeBg ?? 0),
               videoPortraitSyntheticHint: Boolean(
                 videoExportFeatures?.forensic?.videoPortraitSyntheticHint ?? false
-              )
+              ),
+              prnuResidualRisk0to100: videoLowLevel?.prnuResidualRisk0to100,
+              dctDoubleQuantRisk0to100: videoLowLevel?.dctDoubleQuantRisk0to100
             },
             biometric: {
               blinkWarning: Boolean(frameResult.blinkWarning),
@@ -3139,6 +3321,13 @@
               thirdParty: Boolean(mi?.thirdParty),
               originNoVerify: warnings.includes('Origen Digital No Verificado'),
               missingCameraMeta: missingMobile.length > 0
+            },
+            advanced: {
+              rppg: {
+                greenSamples: (frameResult as any).rppgGreenSamples ?? [],
+                sampleRateHz: rppgRate
+              },
+              ...(isMp4Container ? { container: { precomputed: containerPrecomputed ?? undefined } } : {})
             }
           });
 
@@ -3156,12 +3345,26 @@
             warnings.push('Contraste de Textura (ROI): cara demasiado suave vs fondo (proxy)');
           if (Number((frameResult as any).roiNoiseMismatchPts ?? 0) > 0)
             warnings.push('Ruido de piel vs fondo no coincide (ROI proxy)');
+          if (!rppgAnalysis.rhythmicPulseLikely && rppgAnalysis.sampleCount >= 36) {
+            warnings.push('rPPG: sin pulso rítmico plausible en ROI (mejillas / verde)');
+          }
+          if (containerPrecomputed && containerPrecomputed.fakeScore0to100 >= 40) {
+            warnings.push('Contenedor MP4: estructura ftyp/boxes atípica para captura móvil estándar');
+          }
+          if (videoLowLevel && videoLowLevel.prnuResidualRisk0to100 >= 38) {
+            warnings.push('PRNU (proxy): ruido residual compatible con síntesis/filtro, poca textura de sensor.');
+          }
+          if (videoLowLevel && videoLowLevel.dctDoubleQuantRisk0to100 >= 38) {
+            warnings.push('DCT (proxy): indicios de doble compresión en bloques 8×8.');
+          }
 
           const reason =
             verdict === 'ALERTA ROJA'
               ? file.size > MAX_SCAN_SIZE_BYTES
                 ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
-                : "Patron nominal sospechoso detectado en el nombre del archivo ('fake')."
+                : NOMINAL_MANIPULATION_FILE_RE.test(file.name)
+                  ? 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
+                  : 'Indicios fuertes de manipulación o síntesis (varias señales alineadas en vídeo).'
               : verdict === 'SOSPECHOSO'
                 ? Number((frameResult as any).roiPerfectPts ?? 0) > 0
                   ? 'La cara aparece anormalmente “perfecta/suave” en comparación con el fondo (análisis ROI).'
@@ -3199,7 +3402,18 @@
               `ROI_EDGE_FACE: ${Number((frameResult as any).roiEdgeFace ?? 0).toFixed(2)}`,
               `ROI_EDGE_BG: ${Number((frameResult as any).roiEdgeBg ?? 0).toFixed(2)}`,
               mi.thirdParty ? `ENCODER_FOOTPRINT: ${mi.encoderHints.join(', ')}` : 'ENCODER_FOOTPRINT: NONE',
-              missingMobile.length ? `CAMERA_META_MISSING: ${missingMobile.join(', ')}` : 'CAMERA_META_MISSING: NONE'
+              missingMobile.length ? `CAMERA_META_MISSING: ${missingMobile.join(', ')}` : 'CAMERA_META_MISSING: NONE',
+              `RPPG_SAMPLES: ${rppgAnalysis.sampleCount}`,
+              `RPPG_FS_HZ: ${rppgRate.toFixed(2)}`,
+              `RPPG_PROMINENCE: ${rppgAnalysis.prominence.toFixed(3)}`,
+              `RPPG_RHYTHMIC: ${rppgAnalysis.rhythmicPulseLikely ? 'YES' : 'NO'}`,
+              rppgAnalysis.estimatedBpm != null ? `RPPG_BPM_EST: ${rppgAnalysis.estimatedBpm}` : 'RPPG_BPM_EST: NA',
+              containerPrecomputed
+                ? `MP4_FTYP: ${containerPrecomputed.ftypMajorBrand ?? 'NONE'} | MP4_CONTAINER_SCORE: ${containerPrecomputed.fakeScore0to100}`
+                : 'MP4_FTYP: N/A',
+              videoLowLevel
+                ? `PRNU_RESIDUAL_RISK: ${videoLowLevel.prnuResidualRisk0to100} | DCT_DOUBLEQ_RISK: ${videoLowLevel.dctDoubleQuantRisk0to100}`
+                : 'PRNU_RESIDUAL_RISK: N/A | DCT_DOUBLEQ_RISK: N/A'
             ]
           });
           await new Promise((r) => setTimeout(r, 180));
@@ -3207,7 +3421,9 @@
         } catch (err) {
           const verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = hardAlert ? 'ALERTA ROJA' : 'SOSPECHOSO';
           const reason = hardAlert
-            ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
+            ? file.size > MAX_SCAN_SIZE_BYTES
+              ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
+              : 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
             : 'No se pudo completar la Auditoría de Integridad del vídeo en el navegador (error durante el análisis).';
 
           warnings.push('Auditoría no completada en cliente (video). Revisa consola o intenta otro archivo.');
@@ -3256,6 +3472,19 @@
         imageTextureSynthetic = Boolean(imgResult.textureSynthetic);
         imageEdgesSmoothedSynthetic = Boolean(imgResult.edgesSmoothedSynthetic);
 
+        imageLowLevelForensic = {
+          prnuResidualRisk0to100: Number((imgResult as any).prnuResidualRisk0to100 ?? 0),
+          prnuResidualMetrics: (imgResult as any).prnuResidualMetrics ?? null,
+          prnuResidualNotes: Array.isArray((imgResult as any).prnuResidualNotes)
+            ? (imgResult as any).prnuResidualNotes.map(String)
+            : [],
+          dctDoubleQuantRisk0to100: Number((imgResult as any).dctDoubleQuantRisk0to100 ?? 0),
+          dctDoubleQuantMetrics: (imgResult as any).dctDoubleQuantMetrics ?? null,
+          dctDoubleQuantNotes: Array.isArray((imgResult as any).dctDoubleQuantNotes)
+            ? (imgResult as any).dctDoubleQuantNotes.map(String)
+            : []
+        };
+
         let verdict: 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' = 'VERIFICADO';
         let imageEnsVotes: any[] = [];
         if (hardAlert) {
@@ -3285,7 +3514,9 @@
               renderSignatureScore: Number((imgResult as any).renderSignatureScore ?? 0),
               lightingInconsistencyScore: Number((imgResult as any).lightingInconsistencyScore ?? 0),
               localElaCv: Number((imgResult as any).localElaCv ?? 0),
-              localElaPeakRatio: Number((imgResult as any).localElaPeakRatio ?? 0)
+              localElaPeakRatio: Number((imgResult as any).localElaPeakRatio ?? 0),
+              prnuResidualRisk0to100: Number((imgResult as any).prnuResidualRisk0to100 ?? 0),
+              dctDoubleQuantRisk0to100: Number((imgResult as any).dctDoubleQuantRisk0to100 ?? 0)
             },
             metadata: {
               thirdParty: Boolean(mi?.thirdParty),
@@ -3359,13 +3590,19 @@
           warnings.push('Contraste de Textura (ROI): cara demasiado suave vs fondo (proxy)');
         if (Number((imgResult as any).roiFaceScore ?? 0) >= 0.9 && Number((imgResult as any).roiNoiseMismatchPts ?? 0) > 0)
           warnings.push('Ruido de piel vs fondo no coincide (ROI proxy)');
+        if (Number((imgResult as any).prnuResidualRisk0to100 ?? 0) >= 38) {
+          warnings.push('PRNU (proxy): ruido residual compatible con síntesis/filtro, poca textura de sensor.');
+        }
+        if (Number((imgResult as any).dctDoubleQuantRisk0to100 ?? 0) >= 38) {
+          warnings.push('DCT (proxy): indicios de doble compresión en bloques 8×8.');
+        }
 
         const reason =
           verdict === 'ALERTA ROJA'
             ? file.size > MAX_SCAN_SIZE_BYTES
               ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
-              : /fake/i.test(file.name)
-                ? "Patron nominal sospechoso detectado en el nombre del archivo ('fake')."
+              : NOMINAL_MANIPULATION_FILE_RE.test(file.name)
+                ? 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
                 : 'Riesgo de integridad visual elevado (ensemble forense). Se recomienda verificación adicional.'
             : verdict === 'SOSPECHOSO'
               ? imgResult.elaSynthetic || imgResult.frequencySynthetic
@@ -3412,7 +3649,9 @@
             (imgResult.elaSynthetic || imgResult.frequencySynthetic) && verdict === 'VERIFICADO'
               ? 'WEAK_EDIT_HINT: PRESENT_BUT_SUPPRESSED_IN_UI'
               : 'WEAK_EDIT_HINT: -',
-            mi.thirdParty ? `ENCODER_FOOTPRINT: ${mi.encoderHints.join(', ')}` : 'ENCODER_FOOTPRINT: NONE'
+            mi.thirdParty ? `ENCODER_FOOTPRINT: ${mi.encoderHints.join(', ')}` : 'ENCODER_FOOTPRINT: NONE',
+            `PRNU_RESIDUAL_RISK: ${Number((imgResult as any).prnuResidualRisk0to100 ?? 0)}`,
+            `DCT_DOUBLEQ_RISK: ${Number((imgResult as any).dctDoubleQuantRisk0to100 ?? 0)}`
           ]
         });
         await new Promise((r) => setTimeout(r, 180));
@@ -3469,6 +3708,8 @@
     textPreview = '';
     textConnectorScore = 0;
     textTopConnectors = [];
+    videoExportFeatures = null;
+    imageLowLevelForensic = null;
   }
 
   function ensureCanvasSize() {

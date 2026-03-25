@@ -7,6 +7,7 @@ import path from 'node:path';
 import process from 'node:process';
 import type { BiometricInputs, ForensicInputs, SpecialistVote } from '../src/lib/ensemble/EnsembleManager.ts';
 import { EnsembleManager } from '../src/lib/ensemble/EnsembleManager.ts';
+import type { ContainerEnsembleInputs, RppgEnsembleInputs } from '../src/lib/forensics/AdvancedForensicSuite.ts';
 
 const ROOT = process.cwd();
 const DIRS = [path.join(ROOT, 'tests', 'dataset', 'reales'), path.join(ROOT, 'tests', 'dataset', 'fakes')];
@@ -21,6 +22,17 @@ function metadataFromWarnings(warnings: string[]) {
     originNoVerify: w.some((s) => /Origen Digital No Verificado/i.test(s)),
     missingCameraMeta: w.some((s) => /Metadatos de Cámara Incompletos/i.test(s))
   };
+}
+
+function lowLevelForensicFromFeatures(f: Record<string, unknown>): Partial<ForensicInputs> {
+  const o: Partial<ForensicInputs> = {};
+  if (f.prnuResidualRisk0to100 != null && Number.isFinite(Number(f.prnuResidualRisk0to100))) {
+    o.prnuResidualRisk0to100 = Number(f.prnuResidualRisk0to100);
+  }
+  if (f.dctDoubleQuantRisk0to100 != null && Number.isFinite(Number(f.dctDoubleQuantRisk0to100))) {
+    o.dctDoubleQuantRisk0to100 = Number(f.dctDoubleQuantRisk0to100);
+  }
+  return o;
 }
 
 function forensicImageFromFeatures(f: Record<string, unknown>): ForensicInputs {
@@ -44,7 +56,8 @@ function forensicImageFromFeatures(f: Record<string, unknown>): ForensicInputs {
     renderSignatureScore: Number(f.renderSignatureScore ?? 0),
     lightingInconsistencyScore: Number(f.lightingInconsistencyScore ?? 0),
     localElaCv: Number(f.localElaCv ?? 0),
-    localElaPeakRatio: Number(f.localElaPeakRatio ?? 0)
+    localElaPeakRatio: Number(f.localElaPeakRatio ?? 0),
+    ...lowLevelForensicFromFeatures(f)
   };
 }
 
@@ -56,8 +69,20 @@ function forensicVideoFromFeatures(f: Record<string, unknown>): ForensicInputs {
     roiNoiseBg: Number(f.roiNoiseBg ?? 0),
     roiEdgeFace: Number(f.roiEdgeFace ?? 0),
     roiEdgeBg: Number(f.roiEdgeBg ?? 0),
-    videoPortraitSyntheticHint: Boolean(f.videoPortraitSyntheticHint)
+    videoPortraitSyntheticHint: Boolean(f.videoPortraitSyntheticHint),
+    ...lowLevelForensicFromFeatures(f)
   };
+}
+
+function advancedFromFeatures(feats: Record<string, unknown> | null | undefined) {
+  if (!feats) return undefined;
+  const adv = feats.advanced as Record<string, unknown> | undefined;
+  if (!adv || typeof adv !== 'object') return undefined;
+  const out: { rppg?: RppgEnsembleInputs; container?: ContainerEnsembleInputs } = {};
+  if (adv.rppg && typeof adv.rppg === 'object') out.rppg = adv.rppg as RppgEnsembleInputs;
+  if (adv.container && typeof adv.container === 'object') out.container = adv.container as ContainerEnsembleInputs;
+  if (out.rppg == null && out.container == null) return undefined;
+  return out;
 }
 
 function biometricFromFeatures(f: Record<string, unknown>): BiometricInputs {
@@ -171,7 +196,11 @@ for (const dir of DIRS) {
     const raw = JSON.parse(fs.readFileSync(sidecarPath, 'utf8')) as {
       file?: { kind?: string };
       warnings?: string[];
-      features?: { forensic?: Record<string, unknown>; biometric?: Record<string, unknown> } | null;
+      features?: {
+        forensic?: Record<string, unknown>;
+        biometric?: Record<string, unknown>;
+        advanced?: Record<string, unknown>;
+      } | null;
     };
 
     const kind = raw.file?.kind;
@@ -215,7 +244,8 @@ for (const dir of DIRS) {
         kind: 'video',
         forensic: forensicVideoFromFeatures(vf.forensic),
         biometric: biometricFromFeatures(vf.biometric),
-        metadata: metadataFromWarnings(raw.warnings ?? [])
+        metadata: metadataFromWarnings(raw.warnings ?? []),
+        advanced: advancedFromFeatures(vf as Record<string, unknown>)
       });
       const riskScore = Math.round(ens.finalFakeScore0to100);
       const full = raw as Record<string, unknown>;

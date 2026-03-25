@@ -1,6 +1,18 @@
+import { analyzeRppgGreenSeries } from '$lib/forensics/rppgSignal';
+import { scanMp4Container } from '$lib/forensics/mp4BoxForensics';
+import type { ContainerEnsembleInputs, RppgEnsembleInputs } from '$lib/forensics/AdvancedForensicSuite';
+
 export type EvidenceKind = 'video' | 'image' | 'audio' | 'text' | 'unknown';
 
-export type SpecialistKey = 'forensic' | 'biometric' | 'acoustic' | 'linguistic' | 'metadata' | 'other';
+export type SpecialistKey =
+  | 'forensic'
+  | 'biometric'
+  | 'acoustic'
+  | 'linguistic'
+  | 'metadata'
+  | 'other'
+  | 'rppg'
+  | 'container';
 
 export type SpecialistVote = {
   key: SpecialistKey;
@@ -15,11 +27,14 @@ export type SpecialistVote = {
 export type EnsembleWeights = Record<SpecialistKey, number>;
 
 export const DEFAULT_ENSEMBLE_WEIGHTS: EnsembleWeights = {
-  biometric: 0.4,
-  // Aggressive recalibration: prioritize pixels over metadata.
-  forensic: 0.7,
-  metadata: 0.2,
-  other: 0.1,
+  // Física / contenedor primero (40% cada uno en el bloque forense avanzado; se normaliza con el resto).
+  rppg: 0.4,
+  container: 0.4,
+  biometric: 0.35,
+  // Forensic “estético”/ROI: menor peso relativo frente a rPPG y átomos MP4.
+  forensic: 0.35,
+  metadata: 0.12,
+  other: 0.05,
   acoustic: 0.1,
   linguistic: 0.1
 };
@@ -48,6 +63,31 @@ export function aggregateWeighted(votes: SpecialistVote[]): EnsembleResult {
     score += clamp(v.fakeScore0to100, 0, 100) * v.weight * factor;
   }
   return { finalFakeScore0to100: clamp(score, 0, 100), votes, normalizedWeightsSum: sum };
+}
+
+/** Vídeo: sube el score cuando coinciden varias señales (manipulación clara sin un solo disparador al máximo). */
+export function videoConvergenceBoost(forensic: ForensicInputs, biometric: BiometricInputs): number {
+  const rpp = Number(forensic.roiPerfectPts ?? 0) >= 40;
+  const rnm = Number(forensic.roiNoiseMismatchPts ?? 0) >= 20;
+  const portrait = Boolean(forensic.videoPortraitSyntheticHint);
+  const roiStrong = rpp || rnm;
+  const roiAny = roiStrong || portrait;
+
+  let bio = 0;
+  if (biometric.blinkWarning) bio += 1;
+  if (biometric.maskJitterWarning) bio += 1;
+  if (biometric.suspiciousJitter) bio += 1;
+  if (biometric.suspiciousLowConfidence) bio += 1;
+
+  let extra = 0;
+  if (bio >= 2) extra += 17;
+  if (bio >= 3) extra += 12;
+  if (roiAny && bio >= 1) extra += 15;
+  if (roiStrong && bio >= 1) extra += 12;
+  if (portrait && bio >= 1) extra += 11;
+
+  if (!roiAny) extra = Math.min(extra, 20);
+  return Math.min(40, extra);
 }
 
 export function formatEnsembleVotes(votes: SpecialistVote[]) {
@@ -93,6 +133,16 @@ export type ForensicInputs = {
   roiEdgeBg?: number;
   /** Vídeo: cara muy estable, sin parpadeos detectados en ventana (proxy Sora/deepfake limpio). */
   videoPortraitSyntheticHint?: boolean;
+
+  /**
+   * Proxy PRNU / ruido residual (0–100 fake): integrado en el voto Forensic único.
+   * No sustituye PRNU forense con patrón de sensor de referencia.
+   */
+  prnuResidualRisk0to100?: number;
+  /**
+   * Proxy doble cuantificación DCT 8×8 (0–100 fake): integrado en el voto Forensic único.
+   */
+  dctDoubleQuantRisk0to100?: number;
 };
 
 export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weights: EnsembleWeights): SpecialistVote {
@@ -325,12 +375,32 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
     if (studioExportLikely) score += 22;
   }
 
+  // --- Bajo nivel (PRNU residual proxy + DCT doble-Q proxy): mismo peso forensic, sin nuevos SpecialistKey ---
+  const forensicSubNotes: string[] = [];
+  const prnuIn = input.prnuResidualRisk0to100;
+  if (prnuIn != null && Number.isFinite(prnuIn)) {
+    const p = clamp(prnuIn, 0, 100);
+    score = Math.min(100, score + p * 0.2);
+    if (p >= 28) {
+      forensicSubNotes.push(`PRNU residual (proxy): ${p.toFixed(0)}% riesgo — ruido sin textura típica de sensor.`);
+    }
+  }
+  const dctIn = input.dctDoubleQuantRisk0to100;
+  if (dctIn != null && Number.isFinite(dctIn)) {
+    const d = clamp(dctIn, 0, 100);
+    score = Math.min(100, score + d * 0.2);
+    if (d >= 28) {
+      forensicSubNotes.push(`DCT doble-Q (proxy): ${d.toFixed(0)}% riesgo — periodicidad en AC 8×8.`);
+    }
+  }
+
   return {
     key: 'forensic',
     label: 'Forensic',
     fakeScore0to100: clamp(score, 0, 100),
     weight: weights.forensic,
-    applicable: true
+    applicable: true,
+    notes: forensicSubNotes.length ? forensicSubNotes : undefined
   };
 }
 
@@ -431,6 +501,104 @@ export type MetadataInputs = {
   missingCameraMeta?: boolean;
 };
 
+export function RppgAnalyst(
+  kind: EvidenceKind,
+  input: RppgEnsembleInputs | undefined,
+  weights: EnsembleWeights
+): SpecialistVote {
+  if (kind !== 'video') {
+    return {
+      key: 'rppg',
+      label: 'rPPG (pulso)',
+      fakeScore0to100: 0,
+      weight: weights.rppg,
+      applicable: false
+    };
+  }
+  const inn = input ?? {};
+  let res = inn.precomputed ?? null;
+  if (!res && inn.greenSamples?.length && inn.sampleRateHz && inn.sampleRateHz >= 3) {
+    res = analyzeRppgGreenSeries(inn.greenSamples, inn.sampleRateHz);
+  }
+  if (!res || res.sampleCount < 36) {
+    return {
+      key: 'rppg',
+      label: 'rPPG (pulso)',
+      fakeScore0to100: 0,
+      weight: weights.rppg,
+      applicable: false,
+      notes: ['Muestras insuficientes o frecuencia de muestreo baja para rPPG.']
+    };
+  }
+
+  let fake = 0;
+  const notes: string[] = [];
+  if (res.rhythmicPulseLikely) {
+    fake = Math.max(0, 20 - Math.min(20, (res.prominence - 4) * 5));
+    notes.push(
+      `Pico espectral plausible (~${res.estimatedBpm ?? '?'} lpm, prominencia ${res.prominence.toFixed(2)}).`
+    );
+  } else {
+    fake = 52 + Math.min(40, Math.max(0, 6 - res.prominence) * 5);
+    notes.push('Sin pulso rítmico claro en banda cardiaca (verde / ROI mejillas).');
+    if (res.prominence < 2.5) notes.push('Baja prominencia espectral frente al fondo.');
+  }
+
+  return {
+    key: 'rppg',
+    label: 'rPPG (pulso)',
+    fakeScore0to100: clamp(fake, 0, 100),
+    weight: weights.rppg,
+    applicable: true,
+    notes
+  };
+}
+
+export function ContainerAnalyst(
+  kind: EvidenceKind,
+  input: ContainerEnsembleInputs | undefined,
+  weights: EnsembleWeights
+): SpecialistVote {
+  if (kind !== 'video') {
+    return {
+      key: 'container',
+      label: 'Contenedor MP4',
+      fakeScore0to100: 0,
+      weight: weights.container,
+      applicable: false
+    };
+  }
+  const inn = input ?? {};
+  let res = inn.precomputed ?? null;
+  if (!res && inn.buffer && inn.buffer.byteLength > 0) {
+    res = scanMp4Container(inn.buffer);
+  }
+  if (!res) {
+    return {
+      key: 'container',
+      label: 'Contenedor MP4',
+      fakeScore0to100: 0,
+      weight: weights.container,
+      applicable: false,
+      notes: ['Sin datos de contenedor (no MP4 o sin buffer).']
+    };
+  }
+
+  const notes = [...res.notes];
+  const ord = res.topLevelOrder.slice(0, 14);
+  if (ord.length) notes.push(`Boxes (inicio): ${ord.join(' → ')}`);
+  if (res.ftypMajorBrand) notes.push(`ftyp major: ${res.ftypMajorBrand}`);
+
+  return {
+    key: 'container',
+    label: 'Contenedor MP4',
+    fakeScore0to100: clamp(res.fakeScore0to100, 0, 100),
+    weight: weights.container,
+    applicable: true,
+    notes
+  };
+}
+
 export function MetadataAnalyst(kind: EvidenceKind, input: MetadataInputs, weights: EnsembleWeights): SpecialistVote {
   const applicable = kind === 'video' || kind === 'image' || kind === 'audio';
   if (!applicable) {
@@ -470,17 +638,30 @@ export class EnsembleManager {
     acoustic?: AcousticInputs;
     linguistic?: LinguisticInputs;
     metadata?: MetadataInputs;
+    advanced?: {
+      rppg?: RppgEnsembleInputs;
+      container?: ContainerEnsembleInputs;
+    };
   }): EnsembleResult {
     const kind = input.kind;
+    const adv = input.advanced;
     const votes: SpecialistVote[] = [
       ForensicAnalyst(kind, input.forensic ?? {}, this.weights),
+      RppgAnalyst(kind, adv?.rppg, this.weights),
+      ContainerAnalyst(kind, adv?.container, this.weights),
       BiometricAnalyst(kind, input.biometric ?? {}, this.weights),
       AcousticAnalyst(kind, input.acoustic ?? {}, this.weights),
       LinguisticAnalyst(kind, input.linguistic ?? {}, this.weights),
       MetadataAnalyst(kind, input.metadata ?? {}, this.weights),
       OtherAnalyst(kind, this.weights)
     ];
-    return aggregateWeighted(votes);
+    const base = aggregateWeighted(votes);
+    if (kind !== 'video') return base;
+    const boost = videoConvergenceBoost(input.forensic ?? {}, input.biometric ?? {});
+    return {
+      ...base,
+      finalFakeScore0to100: clamp(base.finalFakeScore0to100 + boost, 0, 100)
+    };
   }
 }
 

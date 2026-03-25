@@ -8,8 +8,8 @@
     "mime": "video/mp4"
   },
   "verdict": "ALERTA ROJA",
-  "confidence": 23,
-  "riskScore": 77,
+  "confidence": 0,
+  "riskScore": 100,
   "reason": "Coherencia biométrica estable. No se detectaron indicios fuertes de síntesis.",
   "warnings": [
     "Origen Digital No Verificado",
@@ -95,5 +95,5 @@
     },
     "imputedDatasetBootstrap": true
   },
-  "replayedEnsembleAt": "2026-03-25T18:41:27.111Z"
+  "replayedEnsembleAt": "2026-03-25T19:26:45.833Z"
 }

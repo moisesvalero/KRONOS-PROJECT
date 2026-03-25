@@ -8,8 +8,8 @@
     "mime": "video/mp4"
   },
   "verdict": "ALERTA ROJA",
-  "confidence": 23,
-  "riskScore": 77,
+  "confidence": 0,
+  "riskScore": 100,
   "reason": "La cara aparece anormalmente “perfecta/suave” en comparación con el fondo (análisis ROI).",
   "warnings": [
     "Origen Digital No Verificado",
@@ -98,5 +98,5 @@
     },
     "imputedDatasetBootstrap": true
   },
-  "replayedEnsembleAt": "2026-03-25T18:41:27.109Z"
+  "replayedEnsembleAt": "2026-03-25T19:26:45.831Z"
 }
