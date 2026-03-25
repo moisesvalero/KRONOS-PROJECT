@@ -21,6 +21,13 @@
   --assembly-duration: 1260ms;
   --btn-shine-duration: 0.55s;
   --btn-shine-opacity-duration: 0.3s;
+
+  /* KRONOS tokens */
+  --kronos-bg: #020202;
+  --kronos-surface: #0a0a0a;
+  --kronos-border: #1a1a1a;
+  --kronos-gold: #d4af37;
+  --kronos-alert: #e63946;
 }
 
 /* Reset básico para que todo se vea igual en todos los navegadores */
