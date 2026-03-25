@@ -70,6 +70,7 @@ function forensicVideoFromFeatures(f: Record<string, unknown>): ForensicInputs {
     roiEdgeFace: Number(f.roiEdgeFace ?? 0),
     roiEdgeBg: Number(f.roiEdgeBg ?? 0),
     videoPortraitSyntheticHint: Boolean(f.videoPortraitSyntheticHint),
+    videoPolishedRoiSyntheticHint: Boolean(f.videoPolishedRoiSyntheticHint),
     ...lowLevelForensicFromFeatures(f)
   };
 }
@@ -240,10 +241,14 @@ for (const dir of DIRS) {
         nSkipVid += 1;
         continue;
       }
+      const forensics = forensicVideoFromFeatures(vf.forensic);
+      const bio = biometricFromFeatures(vf.biometric);
+      if (forensics.videoPolishedRoiSyntheticHint) bio.videoPolishedRoiSyntheticHint = true;
+
       const ens = em.evaluate({
         kind: 'video',
-        forensic: forensicVideoFromFeatures(vf.forensic),
-        biometric: biometricFromFeatures(vf.biometric),
+        forensic: forensics,
+        biometric: bio,
         metadata: metadataFromWarnings(raw.warnings ?? []),
         advanced: advancedFromFeatures(vf as Record<string, unknown>)
       });

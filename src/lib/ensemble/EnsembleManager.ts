@@ -70,8 +70,9 @@ export function videoConvergenceBoost(forensic: ForensicInputs, biometric: Biome
   const rpp = Number(forensic.roiPerfectPts ?? 0) >= 40;
   const rnm = Number(forensic.roiNoiseMismatchPts ?? 0) >= 20;
   const portrait = Boolean(forensic.videoPortraitSyntheticHint);
+  const polishedRoi = Boolean(forensic.videoPolishedRoiSyntheticHint);
   const roiStrong = rpp || rnm;
-  const roiAny = roiStrong || portrait;
+  const roiAny = roiStrong || portrait || polishedRoi;
 
   let bio = 0;
   if (biometric.blinkWarning) bio += 1;
@@ -85,9 +86,27 @@ export function videoConvergenceBoost(forensic: ForensicInputs, biometric: Biome
   if (roiAny && bio >= 1) extra += 15;
   if (roiStrong && bio >= 1) extra += 12;
   if (portrait && bio >= 1) extra += 11;
+  if (polishedRoi && bio >= 1) extra += 9;
+  if (polishedRoi && bio < 1) extra += 8;
 
   if (!roiAny) extra = Math.min(extra, 20);
   return Math.min(40, extra);
+}
+
+/** Cara estable + rPPG sin pulso plausible: refuerzo cruzado (Gen-AI pulido). */
+export function videoRppgStableFaceBoost(
+  biometric: BiometricInputs,
+  votes: SpecialistVote[]
+): number {
+  const rppg = votes.find((v) => v.key === 'rppg' && v.applicable);
+  if (!rppg || rppg.fakeScore0to100 < 52) return 0;
+  const rf = Number(biometric.reliableFaceFrames ?? 0);
+  const minC = Number(biometric.minFaceConfidence ?? 0);
+  const maxJ = Number(biometric.maxLandmarkJitter ?? 99);
+  if (rf < 14 || minC < 0.89) return 0;
+  if (maxJ > 0.028) return 0;
+  if (biometric.suspiciousLowConfidence) return 0;
+  return Math.min(20, Math.round((rppg.fakeScore0to100 - 50) * 0.38));
 }
 
 export function formatEnsembleVotes(votes: SpecialistVote[]) {
@@ -133,6 +152,8 @@ export type ForensicInputs = {
   roiEdgeBg?: number;
   /** Vídeo: cara muy estable, sin parpadeos detectados en ventana (proxy Sora/deepfake limpio). */
   videoPortraitSyntheticHint?: boolean;
+  /** Vídeo: ROI textura cara/fondo sospechosa + tracking muy estable pero con algunos parpadeos (Kling/Sora con “blinks”). */
+  videoPolishedRoiSyntheticHint?: boolean;
 
   /**
    * Proxy PRNU / ruido residual (0–100 fake): integrado en el voto Forensic único.
@@ -179,6 +200,9 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
     }
     if (input.videoPortraitSyntheticHint) {
       score += 88;
+    }
+    if (input.videoPolishedRoiSyntheticHint) {
+      score += 58;
     }
     score = Math.min(score, 100);
   }
@@ -414,6 +438,8 @@ export type BiometricInputs = {
   maxLandmarkJitter?: number;
   blinkCount?: number;
   maskJitterMaxScore?: number;
+  /** Alineado con Forensic (misma heurística exportada en features). */
+  videoPolishedRoiSyntheticHint?: boolean;
 };
 
 export function BiometricAnalyst(kind: EvidenceKind, input: BiometricInputs, weights: EnsembleWeights): SpecialistVote {
@@ -447,6 +473,10 @@ export function BiometricAnalyst(kind: EvidenceKind, input: BiometricInputs, wei
     !input.suspiciousLowConfidence
   ) {
     score += 46;
+  }
+
+  if (input.videoPolishedRoiSyntheticHint) {
+    score += 34;
   }
 
   if (rf >= 18 && maxJ >= 0.03 && !input.blinkWarning) {
@@ -658,9 +688,10 @@ export class EnsembleManager {
     const base = aggregateWeighted(votes);
     if (kind !== 'video') return base;
     const boost = videoConvergenceBoost(input.forensic ?? {}, input.biometric ?? {});
+    const pulseBoost = videoRppgStableFaceBoost(input.biometric ?? {}, base.votes);
     return {
       ...base,
-      finalFakeScore0to100: clamp(base.finalFakeScore0to100 + boost, 0, 100)
+      finalFakeScore0to100: clamp(base.finalFakeScore0to100 + boost + pulseBoost, 0, 100)
     };
   }
 }

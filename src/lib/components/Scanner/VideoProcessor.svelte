@@ -17,6 +17,13 @@
   /** Nombre de archivo que el usuario puede usar para marcar contenido dudoso (también dispara ALERTA dura). */
   const NOMINAL_MANIPULATION_FILE_RE =
     /fake|deep\s*fake|deepfake|manipul|editad|montaje|faceswap|face\s*swap|sint[eé]tic|generad[oa]|\bfalso\b/i;
+
+  /**
+   * Patrones de export típicos (Kling, Sora, Runway, etc.) sin coincidir “kling” dentro de palabras (p. ej. rankling).
+   * Dispara ALERTA en análisis de vídeo/imagen junto a hardAlert.
+   */
+  const KNOWN_AI_GENERATOR_EXPORT_FILE_RE =
+    /^(?:kling|sora)(?=[_\s\-.]|$|\d)|[\\/][\s_-]*(?:kling|sora)(?=[_\s\-.]|$|\d)|[_\s-](?:kling|sora)(?=[_\s\-.]|$|\d)|runway[_\s-]?(?:gen|ml|ai)|\bgen-?3\b|google[_\s.-]*veo|\bveo[_\s]?[23]\b|\bvidu\b|pika[_\s-]?(?:labs|art)?[_\s\d-]|pixverse|minimax[_\s-]?video|dreamina|haiper|luma[_\s-]?dream|framepack|wan[_\s-]?video|klingai|kling[_\s.-]?ai/i;
   import {
     ANALYSIS_DURATION_MS,
     MAX_SCAN_SIZE_BYTES,
@@ -166,21 +173,40 @@
     const bc = Number(frameResult.blinkCount ?? 0);
     const minC = Number(frameResult.minScore ?? 0);
     const maxJ = Number(frameResult.maxJitter ?? 0);
-    const portraitHint =
+    const rpp = Number(frameResult.roiPerfectPts ?? 0);
+    const rnm = Number(frameResult.roiNoiseMismatchPts ?? 0);
+    const roiStrong = rpp >= 40 || rnm >= 20;
+
+    const portraitHintStrict =
       rf >= 14 &&
       bc === 0 &&
       !frameResult.blinkWarning &&
       minC >= 0.9 &&
       maxJ <= 0.021 &&
       !frameResult.suspiciousLowConfidence;
+
+    // Kling/Sora con “parpadeos” sintéticos: no cumplen bc===0 pero siguen ROI + tracking demasiado limpios.
+    const portraitHintPolishedRoi =
+      !portraitHintStrict &&
+      rf >= 14 &&
+      bc >= 1 &&
+      bc <= 10 &&
+      !frameResult.blinkWarning &&
+      minC >= 0.91 &&
+      maxJ <= 0.026 &&
+      !frameResult.suspiciousLowConfidence &&
+      !frameResult.suspiciousJitter &&
+      roiStrong;
+
     const forensic: Record<string, unknown> = {
-      roiPerfectPts: Number(frameResult.roiPerfectPts ?? 0),
-      roiNoiseMismatchPts: Number(frameResult.roiNoiseMismatchPts ?? 0),
+      roiPerfectPts: rpp,
+      roiNoiseMismatchPts: rnm,
       roiNoiseFace: Number(frameResult.roiNoiseFace ?? 0),
       roiNoiseBg: Number(frameResult.roiNoiseBg ?? 0),
       roiEdgeFace: Number(frameResult.roiEdgeFace ?? 0),
       roiEdgeBg: Number(frameResult.roiEdgeBg ?? 0),
-      videoPortraitSyntheticHint: portraitHint
+      videoPortraitSyntheticHint: portraitHintStrict,
+      videoPolishedRoiSyntheticHint: portraitHintPolishedRoi
     };
     const L = exportExtras?.lowLevelForensic;
     if (L) {
@@ -3148,7 +3174,10 @@
         warnings.push(`Metadatos de Cámara Incompletos: ${missingMobile.join(', ')}`);
       }
 
-      const hardAlert = file.size > MAX_SCAN_SIZE_BYTES || NOMINAL_MANIPULATION_FILE_RE.test(file.name);
+      const hardAlert =
+        file.size > MAX_SCAN_SIZE_BYTES ||
+        NOMINAL_MANIPULATION_FILE_RE.test(file.name) ||
+        ((mediaKind === 'video' || mediaKind === 'image') && KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name));
       // Se detiene el "heartbeat" cuando entramos en la fase de análisis real.
       stopTelemetryHeartbeat();
 
@@ -3303,6 +3332,9 @@
               videoPortraitSyntheticHint: Boolean(
                 videoExportFeatures?.forensic?.videoPortraitSyntheticHint ?? false
               ),
+              videoPolishedRoiSyntheticHint: Boolean(
+                videoExportFeatures?.forensic?.videoPolishedRoiSyntheticHint ?? false
+              ),
               prnuResidualRisk0to100: videoLowLevel?.prnuResidualRisk0to100,
               dctDoubleQuantRisk0to100: videoLowLevel?.dctDoubleQuantRisk0to100
             },
@@ -3315,7 +3347,10 @@
               minFaceConfidence: Number(frameResult.minScore ?? 0),
               maxLandmarkJitter: Number(frameResult.maxJitter ?? 0),
               blinkCount: Number(frameResult.blinkCount ?? 0),
-              maskJitterMaxScore: Number(frameResult.maskJitterMaxScore ?? 0)
+              maskJitterMaxScore: Number(frameResult.maskJitterMaxScore ?? 0),
+              videoPolishedRoiSyntheticHint: Boolean(
+                videoExportFeatures?.forensic?.videoPolishedRoiSyntheticHint ?? false
+              )
             },
             metadata: {
               thirdParty: Boolean(mi?.thirdParty),
@@ -3339,6 +3374,11 @@
           const confidence = confidenceFromScore(score);
           const riskScore = score;
 
+          if (KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name)) {
+            warnings.push(
+              'Nombre de archivo compatible con export de generador de vídeo (Kling, Sora, Runway, Veo, etc.).'
+            );
+          }
           if (frameResult.blinkWarning) warnings.push('Patrón de Parpadeo Sintético');
           if (frameResult.maskJitterWarning) warnings.push('Inconsistencia de Bordes (Mask Jitter)');
           if (Number((frameResult as any).roiPerfectPts ?? 0) > 0)
@@ -3364,7 +3404,9 @@
                 ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
                 : NOMINAL_MANIPULATION_FILE_RE.test(file.name)
                   ? 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
-                  : 'Indicios fuertes de manipulación o síntesis (varias señales alineadas en vídeo).'
+                  : KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name)
+                    ? 'El nombre del archivo coincide con patrones típicos de export de generadores de vídeo (Kling, Sora, Runway, Veo, etc.).'
+                    : 'Indicios fuertes de manipulación o síntesis (varias señales alineadas en vídeo).'
               : verdict === 'SOSPECHOSO'
                 ? Number((frameResult as any).roiPerfectPts ?? 0) > 0
                   ? 'La cara aparece anormalmente “perfecta/suave” en comparación con el fondo (análisis ROI).'
@@ -3413,7 +3455,9 @@
                 : 'MP4_FTYP: N/A',
               videoLowLevel
                 ? `PRNU_RESIDUAL_RISK: ${videoLowLevel.prnuResidualRisk0to100} | DCT_DOUBLEQ_RISK: ${videoLowLevel.dctDoubleQuantRisk0to100}`
-                : 'PRNU_RESIDUAL_RISK: N/A | DCT_DOUBLEQ_RISK: N/A'
+                : 'PRNU_RESIDUAL_RISK: N/A | DCT_DOUBLEQ_RISK: N/A',
+              `VIDEO_POLISHED_ROI_HINT: ${videoExportFeatures?.forensic?.videoPolishedRoiSyntheticHint ? 'YES' : 'NO'}`,
+              `AI_EXPORT_FILENAME_HEURISTIC: ${KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name) ? 'MATCH' : 'NO'}`
             ]
           });
           await new Promise((r) => setTimeout(r, 180));
@@ -3423,7 +3467,11 @@
           const reason = hardAlert
             ? file.size > MAX_SCAN_SIZE_BYTES
               ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
-              : 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
+              : NOMINAL_MANIPULATION_FILE_RE.test(file.name)
+                ? 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
+                : KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name)
+                  ? 'El nombre del archivo coincide con patrones típicos de export de generadores de vídeo (Kling, Sora, Runway, Veo, etc.).'
+                  : 'Patrón en el nombre del archivo sugiere revisión prioritaria.'
             : 'No se pudo completar la Auditoría de Integridad del vídeo en el navegador (error durante el análisis).';
 
           warnings.push('Auditoría no completada en cliente (video). Revisa consola o intenta otro archivo.');
@@ -3596,6 +3644,11 @@
         if (Number((imgResult as any).dctDoubleQuantRisk0to100 ?? 0) >= 38) {
           warnings.push('DCT (proxy): indicios de doble compresión en bloques 8×8.');
         }
+        if (KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name)) {
+          warnings.push(
+            'Nombre de archivo compatible con export de generador de vídeo/imagen (Kling, Sora, Runway, Veo, etc.).'
+          );
+        }
 
         const reason =
           verdict === 'ALERTA ROJA'
@@ -3603,7 +3656,9 @@
               ? 'El archivo supera el limite seguro de 150MB y requiere validacion manual.'
               : NOMINAL_MANIPULATION_FILE_RE.test(file.name)
                 ? 'Patrón en el nombre del archivo sugiere contenido manipulado o sintético (marcador nominal).'
-                : 'Riesgo de integridad visual elevado (ensemble forense). Se recomienda verificación adicional.'
+                : KNOWN_AI_GENERATOR_EXPORT_FILE_RE.test(file.name)
+                  ? 'El nombre del archivo coincide con patrones típicos de export de generadores (Kling, Sora, Runway, Veo, etc.).'
+                  : 'Riesgo de integridad visual elevado (ensemble forense). Se recomienda verificación adicional.'
             : verdict === 'SOSPECHOSO'
               ? imgResult.elaSynthetic || imgResult.frequencySynthetic
                 ? 'Se detectaron señales de síntesis compatibles: ELA y/o periodicidad en dominio frecuencia.'
