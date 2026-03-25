@@ -8,13 +8,17 @@ module.exports = {
           black: '#020202',
           surface: '#0A0A0A',
           border: '#1A1A1A',
-          gold: '#D4AF37',
-          alert: '#E63946'
+          gold: '#00e5ff',
+          alert: '#E63946',
+          ok: '#22C55E',
+          warn: '#F59E0B'
         }
       },
       boxShadow: {
-        'neon-gold': '0 0 24px rgba(212, 175, 55, 0.24)',
-        'neon-red': '0 0 24px rgba(230, 57, 70, 0.24)'
+        'neon-gold': '0 0 24px rgba(0, 229, 255, 0.24)',
+        'neon-red': '0 0 24px rgba(230, 57, 70, 0.24)',
+        'neon-green': '0 0 24px rgba(34, 197, 94, 0.24)',
+        'neon-warn': '0 0 24px rgba(245, 158, 11, 0.24)'
       },
       backdropBlur: {
         xs: '2px'

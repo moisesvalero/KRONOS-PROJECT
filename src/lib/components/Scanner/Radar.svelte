@@ -11,7 +11,15 @@
 
   let { active = false, progress = 0, verdict = null }: Props = $props();
 
-  let tone = $derived(verdict === 'ALERTA ROJA' ? '#E63946' : '#D4AF37');
+  let tone = $derived(
+    verdict === 'VERIFICADO'
+      ? 'var(--kronos-ok)'
+      : verdict === 'SOSPECHOSO'
+        ? 'var(--kronos-warn)'
+        : verdict === 'ALERTA ROJA'
+          ? 'var(--kronos-alert)'
+          : 'var(--kronos-gold)'
+  );
 </script>
 
 <div class="radar-shell" in:scale={{ duration: 350, start: 0.95 }} out:fade>
@@ -27,7 +35,7 @@
   </div>
 
   <div class="readout">
-    <span>BIO-RADAR</span>
+    <span>ESCÁNER</span>
     <strong>{Math.round(progress)}%</strong>
   </div>
 </div>
@@ -39,11 +47,15 @@
     max-width: 100%;
     aspect-ratio: 1;
     border-radius: 999px;
-    border: 1px solid rgba(212, 175, 55, 0.2);
-    background: radial-gradient(circle at center, rgba(212, 175, 55, 0.12), rgba(2, 2, 2, 0.86) 62%);
+    border: 1px solid color-mix(in srgb, var(--tone, var(--kronos-gold)) 34%, transparent);
+    background: radial-gradient(
+      circle at center,
+      color-mix(in srgb, var(--tone, var(--kronos-gold)) 16%, transparent),
+      rgba(2, 2, 2, 0.86) 62%
+    );
     box-shadow:
-      0 0 30px rgba(212, 175, 55, 0.13),
-      inset 0 0 45px rgba(212, 175, 55, 0.05);
+      0 0 22px color-mix(in srgb, var(--tone, var(--kronos-gold)) 10%, transparent),
+      inset 0 0 26px color-mix(in srgb, var(--tone, var(--kronos-gold)) 5%, transparent);
     overflow: hidden;
   }
 
@@ -60,7 +72,7 @@
   }
 
   .ring {
-    border: 1px solid rgba(212, 175, 55, 0.18);
+    border: 1px solid color-mix(in srgb, var(--tone, var(--kronos-gold)) 18%, transparent);
     inset: 12%;
   }
 
@@ -73,7 +85,12 @@
   }
 
   .cross {
-    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.24), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--tone, var(--kronos-gold)) 32%, transparent),
+      transparent
+    );
   }
 
   .cross-h {
@@ -85,7 +102,12 @@
     inset: 8% auto 8% 49.5%;
     width: 1px;
     height: auto;
-    background: linear-gradient(180deg, transparent, rgba(212, 175, 55, 0.24), transparent);
+    background: linear-gradient(
+      180deg,
+      transparent,
+      color-mix(in srgb, var(--tone, var(--kronos-gold)) 32%, transparent),
+      transparent
+    );
   }
 
   .pulse {
@@ -94,8 +116,8 @@
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    background: #d4af37;
-    box-shadow: 0 0 18px rgba(212, 175, 55, 0.8);
+    background: var(--tone, var(--kronos-gold));
+    box-shadow: 0 0 12px color-mix(in srgb, var(--tone, var(--kronos-gold)) 55%, transparent);
     animation: pulse 1.4s ease-in-out infinite;
   }
 
@@ -105,12 +127,12 @@
     border-radius: 999px;
     background: conic-gradient(from 0deg, transparent 0deg, transparent 288deg, color-mix(in srgb, var(--tone) 55%, #ffffff 2%) 344deg, transparent 360deg);
     mix-blend-mode: screen;
-    opacity: 0.18;
+    opacity: 0.12;
     transform: rotate(0deg);
   }
 
   .sweep.active {
-    opacity: 0.32;
+    opacity: 0.22;
     animation: sweep 2.25s linear infinite;
   }
 
@@ -126,14 +148,14 @@
     letter-spacing: 0.12em;
     color: rgba(255, 255, 255, 0.76);
     background: rgba(10, 10, 10, 0.74);
-    border: 1px solid rgba(212, 175, 55, 0.25);
+    border: 1px solid color-mix(in srgb, var(--tone, var(--kronos-gold)) 34%, transparent);
     border-radius: 999px;
     padding: 0.28rem 0.62rem;
     backdrop-filter: blur(8px);
   }
 
   .readout strong {
-    color: #d4af37;
+    color: var(--tone, var(--kronos-gold));
   }
 
   @keyframes sweep {

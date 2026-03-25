@@ -28,8 +28,13 @@
 
   const dispatch = createEventDispatcher<{ close: void; download: void }>();
 
-  let verdictTone = $derived(verdict === 'ALERTA ROJA' ? 'danger' : 'success');
-  let statusLabel = $derived(verdict ?? 'PENDIENTE');
+  // Semáforo: verde=VERIFICADO, naranja=SOSPECHOSO, rojo=ALERTA ROJA
+  let verdictTone = $derived(
+    verdict === 'VERIFICADO' ? 'success' : verdict === 'SOSPECHOSO' ? 'warn' : verdict === 'ALERTA ROJA' ? 'danger' : 'success'
+  );
+  let isVerified = $derived(verdict === 'VERIFICADO');
+  let isSuspicious = $derived(verdict === 'SOSPECHOSO');
+  let statusLabel = $derived(verdict === 'ALERTA ROJA' ? 'ALERTA DE DEEPFAKE' : verdict ?? 'PENDIENTE');
   let normalizedDate = $derived(
     completedAt ? new Date(completedAt).toLocaleString('es-ES') : '-'
   );
@@ -39,19 +44,21 @@
 </script>
 
 {#if open}
-  <div class="backdrop" role="presentation" on:click={close} in:fade={{ duration: 200 }} out:fade={{ duration: 180 }}>
+  <div class="backdrop" role="presentation" on:click={close} in:fade={{ duration: 260 }} out:fade={{ duration: 220 }}>
     <section
       class="modal"
       class:danger={verdictTone === 'danger'}
+      class:warn={verdictTone === 'warn'}
+      class:verified={isVerified}
       role="dialog"
       aria-modal="true"
-      aria-label="Informe forense KRONOS"
+      aria-label="Informe de Auditoría de Integridad KRONOS"
       on:click|stopPropagation
-      in:scale={{ duration: 220, start: 0.96 }}
-      out:scale={{ duration: 170, start: 0.98 }}
+      in:scale={{ duration: 320, start: 0.94 }}
+      out:scale={{ duration: 220, start: 0.98 }}
     >
       <header class="head">
-        <p>INFORME FORENSE NEURONAL</p>
+        <p>INFORME DE AUDITORÍA DE INTEGRIDAD</p>
         <button type="button" class="close" on:click={close} aria-label="Cerrar modal">x</button>
       </header>
 
@@ -63,7 +70,7 @@
       <div class="grid">
         <article>
           <h4>Archivo</h4>
-          <p>{fileName || '-'}</p>
+          <p class="file">{fileName || '-'}</p>
         </article>
         <article>
           <h4>Confianza</h4>
@@ -80,7 +87,7 @@
       </div>
 
       <section class="notes">
-        <h4>Resumen Forense</h4>
+        <h4>Resumen de Auditoría de Integridad</h4>
         <p>{reason || 'Proceso en espera de finalizacion de escaneo.'}</p>
       </section>
 
@@ -96,7 +103,7 @@
       {/if}
 
       <footer>
-        <button type="button" class="download" on:click={download}>Descargar Certificado KRONOS</button>
+        <button type="button" class="download" on:click={download}>Descargar Certificado de Validación</button>
       </footer>
     </section>
   </div>
@@ -108,7 +115,7 @@
     inset: 0;
     z-index: 120;
     background: rgba(2, 2, 2, 0.72);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(12px);
     display: grid;
     place-items: center;
     padding: 1rem;
@@ -118,13 +125,13 @@
     width: min(100%, 640px);
     border-radius: 18px;
     border: 1px solid #1a1a1a;
-    background: linear-gradient(160deg, rgba(10, 10, 10, 0.95), rgba(6, 6, 6, 0.96));
+    background: rgba(22, 22, 22, 0.92);
     box-shadow:
-      0 0 0 1px rgba(212, 175, 55, 0.08) inset,
+      0 0 0 1px rgba(0, 229, 255, 0.08) inset,
       0 20px 50px rgba(0, 0, 0, 0.52),
-      0 0 38px rgba(212, 175, 55, 0.16);
+      0 0 38px rgba(0, 229, 255, 0.12);
     color: #f3f3f3;
-    padding: 1.2rem;
+    padding: 1.3rem;
   }
 
   .modal.danger {
@@ -132,6 +139,13 @@
       0 0 0 1px rgba(230, 57, 70, 0.12) inset,
       0 20px 50px rgba(0, 0, 0, 0.52),
       0 0 38px rgba(230, 57, 70, 0.2);
+  }
+
+  .modal.warn {
+    box-shadow:
+      0 0 0 1px rgba(245, 158, 11, 0.12) inset,
+      0 20px 50px rgba(0, 0, 0, 0.52),
+      0 0 38px rgba(245, 158, 11, 0.18);
   }
 
   .head {
@@ -164,8 +178,8 @@
     margin-bottom: 1rem;
     padding: 0.42rem 0.75rem;
     border-radius: 999px;
-    border: 1px solid rgba(212, 175, 55, 0.28);
-    background: rgba(212, 175, 55, 0.08);
+    border: 1px solid rgba(0, 229, 255, 0.22);
+    background: rgba(0, 229, 255, 0.06);
   }
 
   .modal.danger .status {
@@ -173,17 +187,55 @@
     background: rgba(230, 57, 70, 0.1);
   }
 
+  .modal.warn .status {
+    border-color: rgba(245, 158, 11, 0.32);
+    background: rgba(245, 158, 11, 0.09);
+  }
+
   .dot {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 999px;
-    background: #d4af37;
-    box-shadow: 0 0 14px rgba(212, 175, 55, 0.8);
+    background: #00e5ff;
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.75);
+    position: relative;
+  }
+
+  .modal.verified .dot {
+    background: #22c55e;
+    box-shadow: 0 0 14px rgba(34, 197, 94, 0.85);
+  }
+
+  .modal.warn .dot {
+    background: #f59e0b;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.85);
   }
 
   .modal.danger .dot {
     background: #e63946;
     box-shadow: 0 0 14px rgba(230, 57, 70, 0.8);
+  }
+
+  .dot::after {
+    content: '✓';
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 7px;
+    color: rgba(2, 2, 2, 0.9);
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .modal.danger .dot::after {
+    content: '✕';
+    color: rgba(2, 2, 2, 0.92);
+  }
+
+  .modal.warn .dot::after {
+    content: '!';
+    color: rgba(2, 2, 2, 0.92);
   }
 
   .grid {
@@ -209,6 +261,12 @@
 
   p {
     font-size: 0.93rem;
+  }
+
+  /* Evita que nombres largos rompan el modal */
+  .file {
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .notes {
@@ -239,10 +297,10 @@
 
   .download {
     width: 100%;
-    border: 1px solid rgba(212, 175, 55, 0.46);
+    border: 1px solid rgba(0, 229, 255, 0.42);
     border-radius: 10px;
     padding: 0.73rem;
-    background: linear-gradient(120deg, rgba(212, 175, 55, 0.22), rgba(212, 175, 55, 0.09));
+    background: rgba(0, 229, 255, 0.14);
     color: #fff;
     font-weight: 600;
     cursor: pointer;
@@ -251,7 +309,7 @@
 
   .download:hover {
     transform: translateY(-1px);
-    box-shadow: 0 0 22px rgba(212, 175, 55, 0.26);
+    box-shadow: 0 0 22px rgba(0, 229, 255, 0.18);
   }
 
   .modal.danger .download {
