@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fade, scale } from 'svelte/transition';
 
-  type Verdict = 'VERIFICADO' | 'ALERTA ROJA' | null;
+  type Verdict = 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' | null;
 
   interface Props {
     active?: boolean;

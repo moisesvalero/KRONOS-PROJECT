@@ -65,7 +65,7 @@
       radial-gradient(circle at 85% 4%, rgba(230, 57, 70, 0.08), transparent 26%),
       #020202;
     color: #f6f6f6;
-    padding: clamp(6.2rem, 10vw, 7.6rem) 1rem 2.4rem;
+    padding: clamp(3.6rem, 8vw, 4.8rem) 1rem 2.4rem;
   }
 
   .hero {

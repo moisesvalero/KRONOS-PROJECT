@@ -1,7 +1,7 @@
 import { get, writable } from 'svelte/store';
 
 export type ScanPhase = 'IDLE' | 'UPLOADING' | 'ANALYZING' | 'COMPLETED';
-export type ScanVerdict = 'VERIFICADO' | 'ALERTA ROJA';
+export type ScanVerdict = 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA';
 
 export interface ScannerState {
   phase: ScanPhase;
@@ -13,12 +13,13 @@ export interface ScannerState {
   confidence: number;
   riskScore: number;
   reason: string;
+  warnings: string[];
   logs: string[];
   completedAt: string | null;
 }
 
 const MAX_SCAN_SIZE_BYTES = 5 * 1024 * 1024;
-const ANALYSIS_DURATION_MS = 7000;
+const ANALYSIS_DURATION_MS = 20000;
 
 const BASE_LOGS = [
   'BOOTSTRAP_ENGINE...',
@@ -41,6 +42,7 @@ const initialState: ScannerState = {
   confidence: 0,
   riskScore: 0,
   reason: '',
+  warnings: [],
   logs: [],
   completedAt: null
 };
@@ -73,6 +75,7 @@ export async function analyzeVideo(file: File) {
     confidence: 0,
     riskScore: 0,
     reason: '',
+    warnings: [],
     logs: [...BASE_LOGS.slice(0, 2)],
     completedAt: null
   }));
@@ -116,6 +119,7 @@ export async function analyzeVideo(file: File) {
     confidence,
     riskScore,
     reason: getFinalReason(file, isAlert),
+    warnings: [],
     logs: [
       ...BASE_LOGS,
       isAlert ? 'DEEPFAKE_PROBABILITY: HIGH' : 'AUTHENTICITY_LOCK: CONFIRMED',
@@ -132,3 +136,54 @@ export function resetScanner() {
 }
 
 export { ANALYSIS_DURATION_MS, MAX_SCAN_SIZE_BYTES };
+
+export function beginScan(file: File) {
+  scannerState.set({
+    ...initialState,
+    phase: 'UPLOADING',
+    progress: 8,
+    millis: 0,
+    fileName: file.name,
+    fileSize: file.size,
+    logs: [...BASE_LOGS.slice(0, 2)]
+  });
+}
+
+export function setAnalyzing() {
+  scannerState.update((state) => ({
+    ...state,
+    phase: 'ANALYZING',
+    progress: Math.max(state.progress, 15),
+    logs: state.logs.length ? state.logs : [...BASE_LOGS]
+  }));
+}
+
+export function tickScan(millis: number, progress: number) {
+  scannerState.update((state) => ({
+    ...state,
+    millis,
+    progress
+  }));
+}
+
+export function completeScan(input: {
+  verdict: ScanVerdict;
+  confidence: number;
+  riskScore: number;
+  reason: string;
+  warnings?: string[];
+  logsExtra?: string[];
+}) {
+  scannerState.update((state) => ({
+    ...state,
+    phase: 'COMPLETED',
+    progress: 100,
+    verdict: input.verdict,
+    confidence: input.confidence,
+    riskScore: input.riskScore,
+    reason: input.reason,
+    warnings: input.warnings ?? [],
+    logs: [...state.logs, ...(input.logsExtra ?? []), 'FORENSIC_SEQUENCE_COMPLETE'],
+    completedAt: new Date().toISOString()
+  }));
+}

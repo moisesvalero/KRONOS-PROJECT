@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { fade, scale } from 'svelte/transition';
 
-  type Verdict = 'VERIFICADO' | 'ALERTA ROJA' | null;
+  type Verdict = 'VERIFICADO' | 'SOSPECHOSO' | 'ALERTA ROJA' | null;
 
   interface Props {
     open?: boolean;
@@ -12,6 +12,7 @@
     fileName?: string;
     reason?: string;
     completedAt?: string;
+    warnings?: string[];
   }
 
   let {
@@ -21,7 +22,8 @@
     riskScore = 0,
     fileName = '',
     reason = '',
-    completedAt = ''
+    completedAt = '',
+    warnings = []
   }: Props = $props();
 
   const dispatch = createEventDispatcher<{ close: void; download: void }>();
@@ -81,6 +83,17 @@
         <h4>Resumen Forense</h4>
         <p>{reason || 'Proceso en espera de finalizacion de escaneo.'}</p>
       </section>
+
+      {#if warnings?.length}
+        <section class="notes">
+          <h4>Avisos</h4>
+          <ul class="warn-list">
+            {#each warnings as w}
+              <li>{w}</li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
 
       <footer>
         <button type="button" class="download" on:click={download}>Descargar Certificado KRONOS</button>
@@ -209,6 +222,15 @@
   .notes p {
     margin-top: 0.25rem;
     color: rgba(255, 255, 255, 0.85);
+  }
+
+  .warn-list {
+    margin-top: 0.25rem;
+    padding-left: 1.2rem;
+    display: grid;
+    gap: 0.25rem;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.9rem;
   }
 
   footer {
