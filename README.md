@@ -162,19 +162,16 @@ No se mantiene la promesa de detección perfecta.
 
 ---
 
-## 10) Próximo paso recomendado (fuera de este repo)
+## 10) Licencia y uso responsable
 
-Continuar en una nueva repo con nuevo nombre y nuevo posicionamiento:
+Este proyecto adopta un modelo de licencia existente para proteger uso comercial sin acuerdo:
 
-- detector de riesgo asistido, no "detector infalible",
-- métricas objetivo explícitas (FP/FN por escenario),
-- dataset de calibración más amplio (especialmente material real legacy),
-- umbrales y pesos gobernados por evaluación, no por intuición aislada.
+- **PolyForm Noncommercial 1.0.0** para el código público de este repositorio.
+- Cualquier uso comercial requiere **licencia comercial separada** acordada con el autor.
 
----
+Nota importante:
 
-## 11) Licencia y uso responsable
+- Las licencias open source estándar (MIT, Apache-2.0, GPL) no garantizan reparto de beneficios.
+- Si alguien quiere explotar este trabajo comercialmente, debe negociar condiciones (por ejemplo, fee, royalty o reparto) en la licencia comercial privada.
 
-Pendiente de la licencia final que decida el autor del proyecto.
-
-Mientras tanto, se recomienda tratar este código como prototipo experimental y no usarlo para decisiones con impacto legal o reputacional sin validación adicional independiente.
+En cualquier caso, este repositorio debe tratarse como prototipo experimental y no usarse como única base para decisiones con impacto legal o reputacional sin validación adicional independiente.
