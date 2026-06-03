@@ -3,6 +3,7 @@
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
+	"packageManager": "pnpm@10.24.0",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
@@ -15,7 +16,7 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"studio": "npx sanity dev",
+		"studio": "sanity dev",
 		"benchmark": "node scripts/benchmark.js",
 		"capture:dataset": "node scripts/capture-dataset.js",
 		"capture:video": "node scripts/capture-dataset.js --video-only",
@@ -29,6 +30,7 @@
 		"@sveltejs/adapter-node": "^5.5.4",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@types/node": "^25.0.9",
 		"autoprefixer": "^10.4.27",
 		"eslint": "^10.4.1",
 		"eslint-config-prettier": "^10.1.8",
@@ -56,10 +58,12 @@
 		"jspdf": "^4.2.1",
 		"mediainfo.js": "^0.3.7"
 	},
-	"overrides": {
-		"cookie": "^0.7.2",
-		"js-yaml": "^3.14.2",
-		"node-fetch": "^2.7.0",
-		"uuid": "^11.1.1"
+	"pnpm": {
+		"overrides": {
+			"cookie": "^0.7.2",
+			"js-yaml": "^3.14.2",
+			"node-fetch": "^2.7.0",
+			"uuid": "^11.1.1"
+		}
 	}
 }

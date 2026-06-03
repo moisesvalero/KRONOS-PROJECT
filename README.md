@@ -51,13 +51,13 @@ KRONOS es I+D, no una prueba forense/legal. Puede producir falsos positivos y fa
 ### Requisitos
 
 - Node.js 18 o superior, recomendado Node.js 20+.
-- npm.
+- pnpm 10.24.0.
 
 ### Uso local
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 La app se abre normalmente en:
@@ -69,14 +69,18 @@ http://localhost:5173
 ### Comandos útiles
 
 ```bash
-npm run check
-npm run build
-npm run replay:ensemble
-npm run replay:ensemble:impute-video
-npm run benchmark
+pnpm run format
+pnpm run format:check
+pnpm run lint
+pnpm run check
+pnpm test
+pnpm run build
+pnpm run replay:ensemble
+pnpm run replay:ensemble:impute-video
+pnpm run benchmark
 ```
 
-El proyecto no define actualmente scripts `format`, `format:check`, `lint` ni `test`.
+Este proyecto usa pnpm. No uses npm ni generes `package-lock.json` salvo peticion explicita.
 
 ### Licencia
 
@@ -127,13 +131,13 @@ KRONOS is an R&D prototype, not legal or forensic proof. It can produce false po
 ### Requirements
 
 - Node.js 18 or newer, Node.js 20+ recommended.
-- npm.
+- pnpm 10.24.0.
 
 ### Local Usage
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 The app usually opens at:
@@ -145,14 +149,18 @@ http://localhost:5173
 ### Useful Commands
 
 ```bash
-npm run check
-npm run build
-npm run replay:ensemble
-npm run replay:ensemble:impute-video
-npm run benchmark
+pnpm run format
+pnpm run format:check
+pnpm run lint
+pnpm run check
+pnpm test
+pnpm run build
+pnpm run replay:ensemble
+pnpm run replay:ensemble:impute-video
+pnpm run benchmark
 ```
 
-The project does not currently define `format`, `format:check`, `lint` or `test` scripts.
+This project uses pnpm. Do not use npm or generate `package-lock.json` unless explicitly requested.
 
 ### License
 
