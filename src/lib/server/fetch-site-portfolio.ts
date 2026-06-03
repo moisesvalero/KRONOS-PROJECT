@@ -7,37 +7,37 @@ import { getSanityProjectConfig, getSanityServerClient } from './sanity/get-serv
 import { mapSanitySitePortfolio } from './sanity/map-site-portfolio';
 
 function defaultBaseUrl(): string {
-  return new URL(publicEnv.PUBLIC_SITE_URL || 'http://localhost:5173').toString().replace(/\/$/, '');
+	return new URL(publicEnv.PUBLIC_SITE_URL || 'http://localhost:5173').toString().replace(/\/$/, '');
 }
 
 export async function fetchSitePortfolio(locale: SiteLocale = 'es'): Promise<SitePortfolioContent> {
-  const baseUrl = defaultBaseUrl();
-  const client = getSanityServerClient();
-  const cfg = getSanityProjectConfig();
-  if (!client || !cfg) {
-    return mapSanitySitePortfolio(null, sitePortfolioDefaults, {
-      projectId: '',
-      dataset: '',
-      baseUrl,
-      locale
-    });
-  }
+	const baseUrl = defaultBaseUrl();
+	const client = getSanityServerClient();
+	const cfg = getSanityProjectConfig();
+	if (!client || !cfg) {
+		return mapSanitySitePortfolio(null, sitePortfolioDefaults, {
+			projectId: '',
+			dataset: '',
+			baseUrl,
+			locale
+		});
+	}
 
-  try {
-    const raw = await client.fetch<Record<string, unknown> | null>(sitePortfolioQuery);
-    return mapSanitySitePortfolio(raw, sitePortfolioDefaults, {
-      projectId: cfg.projectId,
-      dataset: cfg.dataset,
-      baseUrl,
-      locale
-    });
-  } catch (error) {
-    console.warn('[portfolio] Sanity unavailable, using local defaults.', error);
-    return mapSanitySitePortfolio(null, sitePortfolioDefaults, {
-      projectId: cfg.projectId,
-      dataset: cfg.dataset,
-      baseUrl,
-      locale
-    });
-  }
+	try {
+		const raw = await client.fetch<Record<string, unknown> | null>(sitePortfolioQuery);
+		return mapSanitySitePortfolio(raw, sitePortfolioDefaults, {
+			projectId: cfg.projectId,
+			dataset: cfg.dataset,
+			baseUrl,
+			locale
+		});
+	} catch (error) {
+		console.warn('[portfolio] Sanity unavailable, using local defaults.', error);
+		return mapSanitySitePortfolio(null, sitePortfolioDefaults, {
+			projectId: cfg.projectId,
+			dataset: cfg.dataset,
+			baseUrl,
+			locale
+		});
+	}
 }

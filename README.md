@@ -1,177 +1,159 @@
-# KRONOS (Estado Público de Investigación)
+# KRONOS
 
-Repositorio abierto con el estado actual de KRONOS: un prototipo de análisis forense para estimar riesgo de manipulación/síntesis en imagen y vídeo.
+KRONOS is a SvelteKit prototype for local digital-media integrity analysis. It estimates manipulation or synthesis risk in images, video, audio, text and links by combining forensic, biometric, metadata and container signals into an explainable score.
 
-Este README es deliberadamente sincero. El objetivo es dejar trazabilidad de lo que se intentó, qué se consiguió y qué límites siguen abiertos.
+KRONOS es un prototipo SvelteKit para análisis local de integridad de medios digitales. Estima el riesgo de manipulación o síntesis en imágenes, vídeo, audio, texto y enlaces combinando señales forenses, biométricas, de metadatos y de contenedor en una puntuación explicable.
 
----
-
-## 1) Qué es KRONOS
-
-KRONOS combina señales heterogéneas y las agrega con un ensemble:
-
-- Señales forenses visuales (ELA, frecuencia, textura, bordes, ruido, ROI cara/fondo).
-- Señales biométricas en vídeo (estabilidad de landmarks, parpadeo, jitter de máscara).
-- Señales físicas en vídeo (rPPG sobre canal verde en ROI de mejillas).
-- Señales de contenedor MP4 (estructura de boxes y pistas de empaquetado/transcodificación).
-- Señales de metadatos (origen no verificable y software de terceros cuando aplica).
-
-Resultado: `riskScore` (0-100), `verdict` y votos por especialista (`ensembleVotes`) para explicar la decisión.
+![KRONOS home screen](static/screenshots/kronos-home.png)
 
 ---
 
-## 2) Qué se implementó
+## Español
 
-Piezas relevantes en el código actual:
+### Qué hace
 
-- `src/lib/ensemble/EnsembleManager.ts`
-  - Agregación ponderada por especialistas.
-  - Pesos por defecto y boosts de convergencia para vídeo.
-  - Analistas: `forensic`, `biometric`, `rppg`, `container`, `metadata`, `acoustic`, `linguistic`.
+KRONOS ofrece una interfaz de auditoría para cargar evidencias digitales y obtener:
 
-- `src/lib/forensics/AdvancedForensicSuite.ts`
-  - Contratos de entrada para señales avanzadas (rPPG + MP4).
+- `riskScore` de 0 a 100.
+- Veredicto operativo: `VERIFICADO`, `SOSPECHOSO` o `ALERTA ROJA`.
+- Nivel de confianza.
+- Telemetría del análisis local.
+- Exportación JSON para reproducir o revisar resultados.
+- Informe/certificado visual desde la interfaz.
 
-- `src/lib/forensics/rppgSignal.ts`
-  - Cálculo de señal rPPG (estimación de pulso plausible vs ausencia de pulso claro).
+El objetivo no es declarar una verdad absoluta, sino reunir señales técnicas y hacer más trazable una revisión humana.
 
-- `src/lib/forensics/mp4BoxForensics.ts`
-  - Escaneo básico de integridad estructural del contenedor MP4.
+### Señales analizadas
 
-- `src/lib/components/Scanner/VideoProcessor.svelte`
-  - Muestreo de ROI, extracción de features y export de señales para evaluación.
+- Forense visual: ELA, frecuencia, textura, bordes, ruido, PRNU proxy y doble cuantización DCT.
+- Vídeo: consistencia temporal, landmarks faciales, parpadeo, jitter y comparación entre cara/fondo.
+- Señal fisiológica aproximada: rPPG sobre canal verde en regiones de mejilla cuando el material lo permite.
+- Contenedor MP4: estructura de boxes y pistas de empaquetado o transcodificación.
+- Metadatos: origen no verificable, software de terceros y huellas de encoder.
+- Audio/texto/enlace: flujos de verificación integrados en la UI, con tratamiento conservador cuando la evidencia no se descarga o no es concluyente.
 
-- `scripts/replay-ensemble.ts`
-  - Recalcula `riskScore` y `ensembleVotes` sobre sidecars `*.kronos.json`.
+### Arquitectura del proyecto
 
-- `tests/dataset/*/*.kronos.json`
-  - Sidecars de dataset local usado para iteración de reglas y calibración inicial.
+- `src/routes/+page.svelte`: pantalla principal de KRONOS.
+- `src/lib/components/Scanner/VideoProcessor.svelte`: flujo de carga, pestañas de análisis, scoring en UI y exportación.
+- `src/lib/ensemble/EnsembleManager.ts`: agregación ponderada de especialistas y explicación por votos.
+- `src/lib/forensics/*`: módulos de señales forenses avanzadas.
+- `src/lib/stores/scanner.ts`: estado compartido del escáner.
+- `scripts/replay-ensemble.ts`: replay de sidecars `*.kronos.json` para comparar scoring.
+- `sanity/*`: configuración CMS heredada/disponible para contenido.
 
----
+Nota honesta: el repositorio conserva componentes y copys heredados de una plantilla NovaKit en rutas y módulos secundarios. La experiencia principal actual es KRONOS.
 
-## 3) Qué problema intentó resolver
+### Límites
 
-Reducir el caso de "vídeo/foto de IA pulida que pasa por real" sin depender de una única heurística.
+KRONOS es I+D, no una prueba forense/legal. Puede producir falsos positivos y falsos negativos, especialmente con material recomprimido, legacy, mal iluminado, editado por apps sociales o generado con modelos recientes. Los resultados deben leerse como señales de riesgo para revisión, no como veredictos judiciales.
 
-Estrategia seguida:
+### Requisitos
 
-- Pasar de reglas aisladas a ensemble multi-señal.
-- Añadir señales de distinta naturaleza (forense visual, biométrica, física y contenedor).
-- Ajustar reglas para evitar que una única pista dé un veredicto fuerte por sí sola.
+- Node.js 18 o superior, recomendado Node.js 20+.
+- npm.
 
----
-
-## 4) Qué sí funciona razonablemente
-
-- Detección de ciertos contenidos sintéticos con señales múltiples coherentes.
-- Mejor trazabilidad de decisiones gracias a votos por especialista.
-- Mejor cobertura en vídeo al incorporar rPPG y análisis de contenedor MP4.
-- Flujo reproducible de replay con sidecars para comparar cambios de scoring.
-
----
-
-## 5) Límites y problemas reales (sin maquillaje)
-
-1. No existe "infalible" en este dominio.
-   - Siempre hay trade-off entre falsos positivos y falsos negativos.
-
-2. Hay falsos positivos en material real, sobre todo en fotos/vídeos legacy.
-   - Recompresión social, móviles antiguos, iluminación difícil y artefactos JPEG pueden parecer señales sintéticas.
-
-3. Heurísticas fuertes pueden sobrerreaccionar fuera de su contexto.
-   - Una regla útil en cierto tipo de fake puede penalizar indebidamente contenido auténtico.
-
-4. El sistema no es prueba forense/legal.
-   - Es un estimador de riesgo técnico, no un veredicto de autenticidad judicial.
-
-5. Falta calibración amplia con dataset representativo y etiquetado robusto.
-   - Sin eso, cualquier peso/umbral sigue siendo parcialmente artesanal.
-
----
-
-## 6) Estado de precisión y expectativas
-
-Este repositorio refleja una fase de I+D, no un detector terminado para producción crítica.
-
-Si se usa, debe comunicarse así:
-
-- "señales de riesgo" y "revisión recomendada",
-- no "esta imagen es falsa" como afirmación absoluta.
-
----
-
-## 7) Seguridad y secretos
-
-Revisión básica del repositorio (archivos y patrones típicos de credenciales):
-
-- No se han encontrado `.env` reales versionados.
-- Existe `.env.example` con placeholders (correcto).
-- `.gitignore` ignora `.env` y variantes (salvo excepciones explícitas de ejemplo/test).
-- No aparecen tokens evidentes de proveedores comunes en archivos rastreados.
-
-Importante:
-
-- Esta revisión es de superficie (patrones conocidos).
-- Antes de publicar definitivamente, conviene un escaneo dedicado de secretos en GitHub (Secret Scanning / push protection si aplica).
-
----
-
-## 8) Cómo ejecutar localmente (modo actual)
-
-Requisitos:
-
-- Node.js 18+ (recomendado 20+).
-
-Comandos:
+### Uso local
 
 ```bash
 npm install
 npm run dev
 ```
 
-Chequeo de tipos:
+La app se abre normalmente en:
+
+```text
+http://localhost:5173
+```
+
+### Comandos útiles
 
 ```bash
 npm run check
-```
-
-Replay de sidecars:
-
-```bash
+npm run build
 npm run replay:ensemble
+npm run replay:ensemble:impute-video
+npm run benchmark
 ```
 
-Con imputación conservadora de features de vídeo cuando falten:
+El proyecto no define actualmente scripts `format`, `format:check`, `lint` ni `test`.
+
+### Licencia
+
+Este repositorio usa la licencia MIT. Consulta [`LICENSE`](LICENSE).
+
+---
+
+## English
+
+### What It Does
+
+KRONOS provides an audit interface for digital evidence and returns:
+
+- A 0-100 `riskScore`.
+- An operational verdict: `VERIFICADO`, `SOSPECHOSO` or `ALERTA ROJA`.
+- Confidence level.
+- Local-analysis telemetry.
+- JSON export for replay and review.
+- A visual report/certificate from the UI.
+
+The goal is not to claim absolute truth. KRONOS gathers technical signals and makes human review more traceable.
+
+### Signals Used
+
+- Visual forensics: ELA, frequency, texture, edges, noise, PRNU proxy and DCT double-quantization hints.
+- Video: temporal consistency, facial landmarks, blink behavior, jitter and face/background comparisons.
+- Approximate physiological signal: green-channel rPPG over cheek regions when the source allows it.
+- MP4 container checks: box structure and packaging/transcoding hints.
+- Metadata: unverifiable origin, third-party software and encoder fingerprints.
+- Audio/text/link: UI-integrated verification flows, handled conservatively when evidence is unavailable or inconclusive.
+
+### Project Structure
+
+- `src/routes/+page.svelte`: main KRONOS screen.
+- `src/lib/components/Scanner/VideoProcessor.svelte`: upload flow, analysis tabs, UI scoring and exports.
+- `src/lib/ensemble/EnsembleManager.ts`: weighted specialist aggregation and explainable votes.
+- `src/lib/forensics/*`: advanced forensic signal modules.
+- `src/lib/stores/scanner.ts`: shared scanner state.
+- `scripts/replay-ensemble.ts`: replay for `*.kronos.json` sidecars to compare scoring.
+- `sanity/*`: CMS configuration kept available for content workflows.
+
+Honest note: the repository still contains secondary components and copy inherited from a NovaKit template. The current primary experience is KRONOS.
+
+### Limits
+
+KRONOS is an R&D prototype, not legal or forensic proof. It can produce false positives and false negatives, especially with recompressed, legacy, poorly lit, socially edited or newly generated material. Treat results as risk signals for review, not as judicial authenticity claims.
+
+### Requirements
+
+- Node.js 18 or newer, Node.js 20+ recommended.
+- npm.
+
+### Local Usage
 
 ```bash
-npm run replay:ensemble:impute-video
+npm install
+npm run dev
 ```
 
----
+The app usually opens at:
 
-## 9) Decisión de producto para este repositorio
+```text
+http://localhost:5173
+```
 
-Este repo se publica como estado abierto de KRONOS, con enfoque de documentación y aprendizaje:
+### Useful Commands
 
-- qué se probó,
-- qué señales se combinaron,
-- dónde funcionó mejor,
-- dónde falló (incluidos falsos positivos).
+```bash
+npm run check
+npm run build
+npm run replay:ensemble
+npm run replay:ensemble:impute-video
+npm run benchmark
+```
 
-No se mantiene la promesa de detección perfecta.
+The project does not currently define `format`, `format:check`, `lint` or `test` scripts.
 
----
+### License
 
-## 10) Licencia y uso responsable
-
-Este proyecto adopta un modelo de licencia existente para proteger uso comercial sin acuerdo:
-
-- **PolyForm Noncommercial 1.0.0** para el código público de este repositorio.
-- Cualquier uso comercial requiere **licencia comercial separada** acordada con el autor.
-
-Nota importante:
-
-- Las licencias open source estándar (MIT, Apache-2.0, GPL) no garantizan reparto de beneficios.
-- Si alguien quiere explotar este trabajo comercialmente, debe negociar condiciones (por ejemplo, fee, royalty o reparto) en la licencia comercial privada.
-
-En cualquier caso, este repositorio debe tratarse como prototipo experimental y no usarse como única base para decisiones con impacto legal o reputacional sin validación adicional independiente.
+This repository is licensed under MIT. See [`LICENSE`](LICENSE).

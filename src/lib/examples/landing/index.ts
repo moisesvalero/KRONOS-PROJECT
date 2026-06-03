@@ -11,4 +11,3 @@ export { default as DeepDetails } from '$lib/components/DeepDetails.svelte';
 export { default as FAQ } from '$lib/components/FAQ.svelte';
 export { default as Footer } from '$lib/components/Footer.svelte';
 export { default as PhoneMockup } from '$lib/components/PhoneMockup.svelte';
-

@@ -10,16 +10,16 @@ export { analyzeRppgGreenSeries, meanGreenCheekRoi, type RppgAnalysisResult } fr
 export { scanMp4Container, type Mp4ForensicResult } from './mp4BoxForensics';
 
 export type RppgEnsembleInputs = {
-  /** Muestras de verde (ROI mejillas) a fs constante */
-  greenSamples?: number[];
-  sampleRateHz?: number;
-  /** Si ya se calculó fuera (p. ej. replay desde JSON) */
-  precomputed?: RppgAnalysisResult | null;
+	/** Muestras de verde (ROI mejillas) a fs constante */
+	greenSamples?: number[];
+	sampleRateHz?: number;
+	/** Si ya se calculó fuera (p. ej. replay desde JSON) */
+	precomputed?: RppgAnalysisResult | null;
 };
 
 export type ContainerEnsembleInputs = {
-  /** Buffer MP4 o cabecera */
-  buffer?: ArrayBuffer | null;
-  /** Si ya se escaneó */
-  precomputed?: Mp4ForensicResult | null;
+	/** Buffer MP4 o cabecera */
+	buffer?: ArrayBuffer | null;
+	/** Si ya se escaneó */
+	precomputed?: Mp4ForensicResult | null;
 };
