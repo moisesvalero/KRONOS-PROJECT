@@ -25,3 +25,6 @@ vite.config.ts.timestamp-*
 # Tests
 /playwright-report
 /test-results
+
+# Local agent skills
+.agents/skills/impeccable/
