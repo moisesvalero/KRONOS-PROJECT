@@ -80,7 +80,7 @@ export function analyzeDctDoubleQuantization(gray: Float32Array, width: number, 
 				for (let i = 0; i < 64; i++) patch[i] -= m;
 				dct8x8Block(patch);
 				// AC (1,0) y (0,1) — sensibles a artefactos de recompresión
-				acVals.push(patch[1 * 8 + 0], patch[0 * 8 + 1]);
+				acVals.push(patch[8], patch[1]);
 			}
 			blocks++;
 		}

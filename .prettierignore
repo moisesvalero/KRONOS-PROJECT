@@ -7,3 +7,5 @@ package-lock.json
 static/models/**
 static/screenshots/**
 *.wasm
+playwright-report
+test-results

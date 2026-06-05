@@ -242,7 +242,7 @@ export function ForensicAnalyst(kind: EvidenceKind, input: ForensicInputs, weigh
 		// --- Bordes: perfección alta sí penaliza; nitidez baja solo si hay otro apoyo (evita JPEG suave) ---
 		if (ep > 0.58) score += 34;
 		if (es > 0 && es < 0.2 && ep > 0.36) score += 32;
-		if (es > 0 && es > 0.78) score += 28;
+		if (es > 0.78) score += 28;
 
 		// --- Firma render / textura: no confundir NR agresivo de cámara con IA ---
 		// JPEG viejo / móvil: alto rs + ELA local variable + poco ruido “uniforme” en el mapa nu.
@@ -629,7 +629,7 @@ export function OtherAnalyst(kind: EvidenceKind, weights: EnsembleWeights): Spec
 export class EnsembleManager {
 	private weights: EnsembleWeights;
 	constructor(weights?: Partial<EnsembleWeights>) {
-		this.weights = { ...DEFAULT_ENSEMBLE_WEIGHTS, ...(weights ?? {}) };
+		this.weights = { ...DEFAULT_ENSEMBLE_WEIGHTS, ...weights };
 	}
 
 	evaluate(input: {

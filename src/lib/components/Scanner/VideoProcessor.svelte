@@ -315,7 +315,7 @@
 								frequencySynthetic: Boolean(imageFrequencySynthetic),
 								textureSynthetic: Boolean(imageTextureSynthetic),
 								edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic),
-								...(imageLowLevelForensic ?? {})
+								...imageLowLevelForensic
 							}
 						}
 					: mediaKind === 'video' && videoExportFeatures
@@ -372,7 +372,7 @@
 								frequencySynthetic: Boolean(imageFrequencySynthetic),
 								textureSynthetic: Boolean(imageTextureSynthetic),
 								edgesSmoothedSynthetic: Boolean(imageEdgesSmoothedSynthetic),
-								...(imageLowLevelForensic ?? {})
+								...imageLowLevelForensic
 							}
 						}
 					: mediaKind === 'video' && videoExportFeatures

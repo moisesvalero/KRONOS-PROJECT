@@ -133,7 +133,7 @@ export async function analyzeVideo(file: File) {
 		riskScore: 0,
 		reason: '',
 		warnings: [],
-		logs: [...BASE_LOGS.slice(0, 2)],
+		logs: BASE_LOGS.slice(0, 2),
 		completedAt: null
 	}));
 
