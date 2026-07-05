@@ -43,7 +43,7 @@
 		"lint-staged": "^17.0.7",
 		"oxlint": "^1.68.0",
 		"playwright": "^1.58.2",
-		"prettier": "^3.8.3",
+		"prettier": "^3.9.4",
 		"prettier-plugin-svelte": "^4.1.0",
 		"sanity": "^5.17.1",
 		"svelte": "^5.51.0",
